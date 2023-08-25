@@ -21,7 +21,8 @@ Reddit API integrations using PRAW
    ```shell
    pip install -r requirements.txt
    ```
-3. **Update your plugins_config.yaml file** to enable the plugin. If you skip this step, the plugin won't be loaded.
+3. **Zip/compress the plugin folder**
+4. **Update your plugins_config.yaml file** to enable the plugin. If you skip this step, the plugin won't be loaded.
    
 
    ```shell
@@ -29,7 +30,7 @@ Reddit API integrations using PRAW
      config: {}
      enabled: true
    ```
-4. **Add Reddit API Credentials to your .env**:
+5. **Add Reddit API Credentials to your .env**:
 
    ```shell
    ################################################################################
