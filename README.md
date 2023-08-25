@@ -22,11 +22,12 @@ Reddit API integrations using PRAW
    pip install -r requirements.txt
    ```
 3. **Update your plugins_config.yaml file** to enable the plugin. If you skip this step, the plugin won't be loaded.
+   (Skip this step if you are using Docker Compose)
 
    ```shell
-   plugin_folder:
-      - config: {} # Configs from the plugin README and installation instructions.
-      - enabled: true
+  AutoGPTReddit:
+     config: {}
+     enabled: true
    ```
 4. **Add Reddit API Credentials to your .env**:
 
