@@ -15,17 +15,17 @@ Reddit API integrations using PRAW
 ### How to use a plugin
 
 1. **Clone the plugin repo** into the Auto-GPT's plugins folder.
-2. **Install the plugin's dependencies (if any):**
+2. **Install the plugin's dependencies (if any): (Skip this step if you are using Docker Compose)**
    Navigate to the plugin's folder in your terminal, and run the following command to install any required dependencies:
 
    ```shell
    pip install -r requirements.txt
    ```
 3. **Update your plugins_config.yaml file** to enable the plugin. If you skip this step, the plugin won't be loaded.
-   (Skip this step if you are using Docker Compose)
+   
 
    ```shell
-  AutoGPTReddit:
+   AutoGPTReddit:
      config: {}
      enabled: true
    ```
