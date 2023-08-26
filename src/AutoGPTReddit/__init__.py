@@ -1,24 +1,27 @@
 """Reddit API integrations using PRAW."""
 import os
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, TypeVar
-
 import praw
-from .reddit import *
 from auto_gpt_plugin_template import AutoGPTPluginTemplate
+from .reddit import (
+    get_posts_from_subreddit,
+    get_comments_on_post,
+    submit_post,
+    submit_comment_on_post,
+    reply_to_comment,
+    search_reddit,
+    upvote,
+    downvote,
+    search_reddit_user
+)
 
 PromptGenerator = TypeVar("PromptGenerator")
-
 
 class Message(TypedDict):
     role: str
     content: str
 
-
 class AutoGPTReddit(AutoGPTPluginTemplate):
-    """
-    Reddit API integrations using PRAW
-    """
-
     def __init__(self):
         super().__init__()
         self._name = "autogpt-reddit"
@@ -224,80 +227,75 @@ class AutoGPTReddit(AutoGPTPluginTemplate):
         return None
 
     def post_prompt(self, prompt: PromptGenerator) -> PromptGenerator:
-        """This method is called just after the generate_prompt is called,
-            but actually before the prompt is generated.
-        Args:
-            prompt (PromptGenerator): The prompt generator.
-        Returns:
-            PromptGenerator: The prompt generator.
-        """
         if self.api:
-            from .reddit import (
-                get_posts_from_subreddit,
-                get_comments_on_post,
-                submit_post,
-                submit_comment_on_post,
-                reply_to_comment,
-                search_reddit,
-                upvote,
-                downvote,
-                search_reddit_user
+            # Existing commands, no change required
+            prompt.add_command(
+                "submit_post",
+                "Submit a post",
+                {"subreddit": "<subreddit>", "title": "<title>", "text": "<text>"},
+                lambda subreddit, title, text: submit_post(self.api, subreddit, title, text)
             )
+
+            # Modified to include post IDs
             prompt.add_command(
-    "submit_post",
-    "Submit a post",
-    {"subreddit": "<subreddit>", "title": "<title>", "text": "<text>"},
-    lambda subreddit, title, text: submit_post(self.api, subreddit, title, text)
-)
-            prompt.add_command(
-    "get_posts_from_subreddit",
-    "Get posts from a Subreddit",
-    {"subreddit": "<subreddit>", "number_of_posts": "<number_of_posts>"},
-    lambda subreddit, number_of_posts: get_posts_from_subreddit(self.api, subreddit, int(number_of_posts))
-)
-            prompt.add_command(
-    "get_comments_on_post",
-    "Get comments on a post",
-    {"post_id": "<post_id>", "number_of_comments": "<number_of_comments>"},
-    lambda post_id, number_of_comments: get_comments_on_post(self.api, post_id, int(number_of_comments))
-)
-            prompt.add_command(
-    "submit_comment_on_post",
-    "Submit a comment on a post",
-    {"post_id": "<post_id>", "text": "<text>"},
-    lambda post_id, text: submit_comment_on_post(self.api, post_id, text)
-)
-            prompt.add_command(
-    "reply_to_comment",
-    "Reply to a comment",
-    {"comment_id": "<comment_id>", "text": "<text>"},
-    lambda comment_id, text: reply_to_comment(self.api, comment_id, text)
-)
-            prompt.add_command(
-    "search_reddit",
-    "Search reddit",
-    {"query": "<query>", "subreddit": "<subreddit>", "number_of_posts": "<number_of_posts>"},
-    lambda query, subreddit, number_of_posts: search_reddit(self.api, query, subreddit, int(number_of_posts))
-)
-            prompt.add_command(
-    "upvote",
-    "Upvote a post or comment",
-    {"post_id": "<post_id>", "object_type": "<object_type>"},
-    lambda post_id, object_type: upvote(self.api, post_id, object_type)
-)
-            prompt.add_command(
-    "downvote",
-    "Downvote a post or comment",
-    {"post_id": "<post_id>", "object_type": "<object_type>"},
-    lambda post_id, object_type: downvote(self.api, post_id, object_type)
-)
-            prompt.add_command(
-    "search_reddit_user",
-    "Get user information",
-    {"username": "<username>"},
-    lambda username: search_reddit_user(self.api, username)
+                "get_posts_from_subreddit",
+                "Get posts from a subreddit",
+                {"subreddit": "<subreddit>", "number_of_posts": "<number_of_posts>"},
+                lambda subreddit, number_of_posts: "\n".join([f"ID: {post['id']}, Title: {post['title']}" for post in get_posts_from_subreddit(self.api, subreddit, int(number_of_posts))])
 )
 
+            # Modified to include comment IDs
+            prompt.add_command(
+                "get_comments_on_post",
+                "Get comments on a post",
+                {"post_id": "<post_id>", "number_of_comments": "<number_of_comments>"},
+                lambda post_id, number_of_comments: "\n".join([f"Comment: {comment['text']}, ID: {comment['id']}" for comment in get_comments_on_post(self.api, post_id, int(number_of_comments))])
+            )
+
+            # Existing commands, no change required
+            prompt.add_command(
+                "submit_comment_on_post",
+                "Submit a comment on a post",
+                {"post_id": "<post_id>", "text": "<text>"},
+                lambda post_id, text: submit_comment_on_post(self.api, post_id, text)
+            )
+
+            prompt.add_command(
+                "reply_to_comment",
+                "Reply to a comment",
+                {"comment_id": "<comment_id>", "text": "<text>"},
+                lambda comment_id, text: reply_to_comment(self.api, comment_id, text)
+            )
+
+            # Modified to include post IDs
+            prompt.add_command(
+                "search_reddit",
+                "Search Reddit",
+                {"query": "<query>", "subreddit": "<subreddit>", "number_of_posts": "<number_of_posts>"},
+                lambda query, subreddit, number_of_posts: "\n".join([f"ID: {post['id']}, Title: {post['title']}" for post in search_reddit(self.api, query, subreddit, int(number_of_posts))])
+)
+
+            # Existing commands, no change required
+            prompt.add_command(
+                "upvote",
+                "Upvote a post or comment",
+                {"object_id": "<object_id>", "object_type": "<object_type>"},
+                lambda object_id, object_type: upvote(self.api, object_id, object_type)
+            )
+
+            prompt.add_command(
+                "downvote",
+                "Downvote a post or comment",
+                {"object_id": "<object_id>", "object_type": "<object_type>"},
+                lambda object_id, object_type: downvote(self.api, object_id, object_type)
+            )
+
+            prompt.add_command(
+                "search_reddit_user",
+                "Search for a Reddit user",
+                {"username": "<username>"},
+                lambda username: search_reddit_user(self.api, username)
+            )
         return prompt
 
     def can_handle_text_embedding(
