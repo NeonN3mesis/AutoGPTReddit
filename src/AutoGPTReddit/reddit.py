@@ -127,3 +127,16 @@ def get_notifications(api):
             })
     return notifications
 # TODO: Additional functionalities (Edit, Delete, Save/Unsave) can be implemented here
+
+def get_top_level_comments(api, post_id, limit=10):
+    submission = api.submission(post_id)
+    submission.comments.replace_more(limit=0)
+    top_level_comments = [comment.body for comment in submission.comments[:limit]]
+    return top_level_comments
+
+def get_all_comments(api, post_id, sort='new', limit=10):
+    submission = api.submission(post_id)
+    submission.comment_sort = sort
+    submission.comments.replace_more(limit=0)
+    all_comments = [comment.body for comment in submission.comments.list()[:limit]]
+    return all_comments
