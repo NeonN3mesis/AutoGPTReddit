@@ -10,18 +10,6 @@ PromptGenerator = TypeVar("PromptGenerator")
 
 
 class Message(TypedDict):
-    role: str"""Reddit API integrations using PRAW."""
-import os
-from typing import Any, Dict, List, Optional, Tuple, TypedDict, TypeVar
-
-import praw
-from .reddit import *
-from auto_gpt_plugin_template import AutoGPTPluginTemplate
-
-PromptGenerator = TypeVar("PromptGenerator")
-
-
-class Message(TypedDict):
     role: str
     content: str
 
