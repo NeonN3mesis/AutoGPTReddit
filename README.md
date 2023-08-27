@@ -15,22 +15,27 @@ Reddit API integrations using PRAW
 ### How to use a plugin
 
 1. **Clone the plugin repo** into the Auto-GPT's plugins folder.
-2. **Install the plugin's dependencies (if any): (Skip this step if you are using Docker Compose)**
-   Navigate to the plugin's folder in your terminal, and run the following command to install any required dependencies:
-
-   ```shell
-   pip install -r requirements.txt
-   ```
-3. **Zip/compress the plugin folder**
-4. **Update your plugins_config.yaml file** to enable the plugin. If you skip this step, the plugin won't be loaded.
    
+   Download this repository as a .zip file, copy it to ./plugins/, and rename it to AutoGPTReddit.zip.
 
+   #### To download it directly from your Auto-GPT directory, you can run this command on Linux or MacOS:
+    ```
+    curl -o ./plugins/AutoGPTReddit.zip https://github.com/NeonN3mesis/AutoGPTReddit/archive/refs/heads/master.zip 
+    ```
+
+    #### In PowerShell:
+    ```
+    Invoke-WebRequest -Uri "https://github.com/NeonN3mesis/AutoGPTReddit/archive/refs/heads/master.zip" -OutFile "./plugins/AutoGPTReddit.zip"
+    ```
+3. **Update your plugins_config.yaml file** to enable the plugin. If you skip this step, the plugin won't be loaded.
+
+   
    ```shell
    AutoGPTReddit:
      config: {}
      enabled: true
    ```
-5. **Add Reddit API Credentials to your .env**:
+4. **Add Reddit API Credentials to your .env**:
 
    ```shell
    ################################################################################
