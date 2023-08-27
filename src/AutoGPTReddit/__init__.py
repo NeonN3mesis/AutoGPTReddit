@@ -254,14 +254,13 @@ class AutoGPTReddit(AutoGPTPluginTemplate):
             prompt.add_command(
     "submit_post",
     "Submit a post",
-    {"subreddit": "<subreddit>", "title": "<title>", "text": "<text>"},
-    lambda subreddit, title, text: submit_post(self.api, subreddit, title, text)
-)
-            prompt.add_command(
-    "get_posts_from_subreddit",
-    "Get posts from a Subreddit",
-    {"subreddit": "<subreddit>", "number_of_posts": "<number_of_posts>"},
-    lambda subreddit, number_of_posts: get_posts_from_subreddit(self.api, subreddit, int(number_of_posts))
+    {
+        "subreddit": "<subreddit>",
+        "title": "<title>",
+        "text": "<text>",
+        "flair_id": "<flair_id>"
+    },
+    lambda subreddit, title, text, flair_id=None: submit_post(self.api, subreddit, title, text, flair_id)
 )
             prompt.add_command(
     "get_comments_on_post",

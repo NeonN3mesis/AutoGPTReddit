@@ -30,10 +30,26 @@ def get_comments_on_post(api, post_id, number_of_comments):
         })
     return comments
 
-def submit_post(api, subreddit, title, text):
-    subreddit = api.subreddit(subreddit)
-    return subreddit.submit(title, selftext=text).id
-
+def submit_post(api, subreddit, title, text, flair_id=None):
+    try:
+        subreddit = api.subreddit(subreddit)
+        if flair_id:
+            post = subreddit.submit(title, selftext=text, flair_id=flair_id)
+        else:
+            post = subreddit.submit(title, selftext=text)
+        return {"success": True, "post_id": post.id}
+    except praw.exceptions.APIException as e:
+        if 'flair' in str(e).lower():
+            # Get available flairs
+            available_flairs = [flair for flair in subreddit.flair.link_templates]
+            return {
+                "success": False,
+                "error": "Flair is required to post in this subreddit.",
+                "available_flairs": available_flairs
+            }
+        else:
+            return {"success": False, "error": str(e)}
+    
 def submit_comment_on_post(api, post_id, text):
     submission = api.submission(id=post_id)
     return submission.reply(text).id
