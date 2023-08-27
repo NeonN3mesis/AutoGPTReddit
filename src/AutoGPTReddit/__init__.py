@@ -22,7 +22,7 @@ class AutoGPTReddit(AutoGPTPluginTemplate):
     def __init__(self):
         super().__init__()
         self._name = "autogpt-reddit"
-        self._version = "0.0.3"
+        self._version = "0.0.4"
         self._description = "Reddit API integrations using PRAW."
         self.client_id = os.getenv("REDDIT_CLIENT_ID")
         self.client_secret = os.getenv("REDDIT_CLIENT_SECRET")
@@ -241,7 +241,15 @@ class AutoGPTReddit(AutoGPTPluginTemplate):
                 search_reddit,
                 upvote,
                 downvote,
-                search_reddit_user
+                search_reddit_user,
+                get_top_level_comments,
+                get_all_comments,
+                get_notifications,
+                send_message,
+                get_trending_posts,
+                get_my_subreddits,
+                join_subreddit,
+                get_notifications
             )
             prompt.add_command(
     "submit_post",
@@ -297,7 +305,86 @@ class AutoGPTReddit(AutoGPTPluginTemplate):
     {"username": "<username>"},
     lambda username: search_reddit_user(self.api, username)
 )
+            prompt.add_command(
+    "get_top_level_comments",
+    "Get top-level comments from a Reddit post",
+    {"post_id": "<post_id>", "limit": "<limit>"},
+    lambda post_id, limit: get_top_level_comments(self.api, post_id, int(limit))
+)
+            prompt.add_command(
+    "get_all_comments",
+    "Get all comments from a Reddit post, sorted according to the given parameter",
+    {"post_id": "<post_id>", "sort": "<sort>", "limit": "<limit>"},
+    lambda post_id, sort, limit: get_all_comments(self.api, post_id, sort, int(limit))
+)
+            prompt.add_command(
+    "get_notifications",
+    "Retrieve unread Reddit notifications",
+    {},  # No additional arguments are needed
+    lambda: get_notifications(self.api)
+)
+            prompt.add_command(
+    "send_message",
+    "Send a Reddit message",
+    {"recipient": "<recipient>", "subject": "<subject>", "message_body": "<message_body>"},
+    lambda recipient, subject, message_body: send_message(self.api, recipient, subject, message_body)
+)
+            prompt.add_command(
+    "edit_comment",
+    "Edit an existing comment",
+    {"comment_id": "<comment_id>", "new_text": "<new_text>"},
+    lambda comment_id, new_text: edit_comment(self.api, comment_id, new_text)
+)
 
+            prompt.add_command(
+    "delete_comment",
+    "Delete a comment",
+    {"comment_id": "<comment_id>"},
+    lambda comment_id: delete_comment(self.api, comment_id)
+)
+
+            prompt.add_command(
+    "save_comment",
+    "Save a comment",
+    {"comment_id": "<comment_id>"},
+    lambda comment_id: save_comment(self.api, comment_id)
+)
+            prompt.add_command(
+    "get_trending_posts",
+    "Get a list of the top 5 hot and top 5 rising posts on Reddit",
+    {},
+    lambda: get_trending_posts(self.api)
+)
+            prompt.add_command(
+    "get_my_subreddits_with_ban_status",
+    "Get a list of subreddits the authenticated user is a part of along with ban status",
+    {},
+    lambda: get_my_subreddits(self.api)
+)
+            prompt.add_command(
+    "join_subreddit",
+    "Join a subreddit",
+    {"subreddit_name": "<subreddit_name>"},
+    lambda subreddit_name: join_subreddit(self.api, subreddit_name)
+                
+            prompt.add_command(
+    "get_top_level_comments",
+    "Get top-level comments from a Reddit post",
+    {"post_id": "<post_id>", "limit": "<limit>"},
+    lambda post_id, limit: get_top_level_comments(self.api, post_id, int(limit))
+)
+            prompt.add_command(
+    "get_all_comments",
+    "Get all comments from a Reddit post, sorted according to the given parameter",
+    {"post_id": "<post_id>", "sort": "<sort>", "limit": "<limit>"},
+    lambda post_id, sort, limit: get_all_comments(self.api, post_id, sort, int(limit))
+)
+            prompt.add_command(
+    "get_notifications",
+    "Retrieve unread Reddit notifications",
+    {},  # No additional arguments are needed
+    lambda: get_notifications(self.api)
+)
         return prompt
 
     def can_handle_text_embedding(
