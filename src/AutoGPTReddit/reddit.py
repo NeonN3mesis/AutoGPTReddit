@@ -109,11 +109,12 @@ def get_subreddit_info(api, subreddit_name):
         'created_utc': subreddit.created_utc
     }
 
-def get_notifications(api):
+def get_notifications(api, limit=10):
     notifications = []
-    for item in api.inbox.unread(limit=10):
+    for item in api.inbox.unread(limit=limit):
         if isinstance(item, praw.models.Message):
             notifications.append({
+                'id': item.id,
                 'type': 'Message',
                 'from': item.author.name if item.author else 'Unknown',
                 'subject': item.subject,
@@ -121,12 +122,12 @@ def get_notifications(api):
             })
         elif isinstance(item, praw.models.Comment):
             notifications.append({
+                'id': item.id,
                 'type': 'Comment',
                 'from': item.author.name if item.author else 'Unknown',
                 'body': item.body
             })
     return notifications
-# TODO: Additional functionalities (Edit, Delete, Save/Unsave) can be implemented here
 
 def get_top_level_comments(api, post_id, limit=10):
     submission = api.submission(post_id)

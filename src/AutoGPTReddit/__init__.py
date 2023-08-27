@@ -241,7 +241,10 @@ class AutoGPTReddit(AutoGPTPluginTemplate):
                 search_reddit,
                 upvote,
                 downvote,
-                search_reddit_user
+                search_reddit_user,
+                get_top_level_comments,
+                get_all_comments,
+                get_notifications
             )
             prompt.add_command(
     "submit_post",
@@ -297,37 +300,24 @@ class AutoGPTReddit(AutoGPTPluginTemplate):
     {"username": "<username>"},
     lambda username: search_reddit_user(self.api, username)
 )
-
-        
-            # Added commands for comment extraction
             prompt.add_command(
-                "get_top_level_comments",
-                "Get top-level comments from a Reddit post",
-                {"post_id": "<post_id>", "limit": "<limit>"},
-                lambda post_id, limit: get_top_level_comments(self.api, post_id, int(limit))
-            )
-            
+    "get_top_level_comments",
+    "Get top-level comments from a Reddit post",
+    {"post_id": "<post_id>", "limit": "<limit>"},
+    lambda post_id, limit: get_top_level_comments(self.api, post_id, int(limit))
+)
             prompt.add_command(
-                "get_all_comments",
-                "Get all comments from a Reddit post, sorted according to the given parameter",
-                {"post_id": "<post_id>", "sort": "<sort>", "limit": "<limit>"},
-                lambda post_id, sort, limit: get_all_comments(self.api, post_id, sort, int(limit))
-            )
-        
-            # Added commands for comment extraction
+    "get_all_comments",
+    "Get all comments from a Reddit post, sorted according to the given parameter",
+    {"post_id": "<post_id>", "sort": "<sort>", "limit": "<limit>"},
+    lambda post_id, sort, limit: get_all_comments(self.api, post_id, sort, int(limit))
+)
             prompt.add_command(
-                "get_top_level_comments",
-                "Get top-level comments from a Reddit post",
-                {"post_id": "<post_id>", "limit": "<limit>"},
-                lambda post_id, limit: get_top_level_comments(self.api, post_id, int(limit))
-            )
-            
-            prompt.add_command(
-                "get_all_comments",
-                "Get all comments from a Reddit post, sorted according to the given parameter",
-                {"post_id": "<post_id>", "sort": "<sort>", "limit": "<limit>"},
-                lambda post_id, sort, limit: get_all_comments(self.api, post_id, sort, int(limit))
-            )
+    "get_notifications",
+    "Retrieve unread Reddit notifications",
+    {},  # No additional arguments are needed
+    lambda: get_notifications(self.api)
+)
         return prompt
 
     def can_handle_text_embedding(
