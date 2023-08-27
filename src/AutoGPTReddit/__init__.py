@@ -356,7 +356,7 @@ class AutoGPTReddit(AutoGPTPluginTemplate):
     lambda: get_trending_posts(self.api)
 )
             prompt.add_command(
-    "get_my_subreddits_with_ban_status",
+    "get_my_subreddits",
     "Get a list of subreddits the authenticated user is a part of along with ban status",
     {},
     lambda: get_my_subreddits(self.api)
