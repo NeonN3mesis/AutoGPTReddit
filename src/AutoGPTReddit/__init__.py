@@ -22,7 +22,7 @@ class AutoGPTReddit(AutoGPTPluginTemplate):
     def __init__(self):
         super().__init__()
         self._name = "autogpt-reddit"
-        self._version = "0.0.4"
+        self._version = "0.1.1"
         self._description = "Reddit API integrations using PRAW."
         self.client_id = os.getenv("REDDIT_CLIENT_ID")
         self.client_secret = os.getenv("REDDIT_CLIENT_SECRET")
