@@ -366,7 +366,7 @@ class AutoGPTReddit(AutoGPTPluginTemplate):
     "Join a subreddit",
     {"subreddit_name": "<subreddit_name>"},
     lambda subreddit_name: join_subreddit(self.api, subreddit_name)
-                
+)               
             prompt.add_command(
     "get_top_level_comments",
     "Get top-level comments from a Reddit post",
