@@ -109,11 +109,12 @@ def get_subreddit_info(api, subreddit_name):
         'created_utc': subreddit.created_utc
     }
 
-def get_notifications(api):
+def get_notifications(api, limit=10):
     notifications = []
-    for item in api.inbox.unread(limit=10):
+    for item in api.inbox.unread(limit=limit):
         if isinstance(item, praw.models.Message):
             notifications.append({
+                'id': item.id,
                 'type': 'Message',
                 'from': item.author.name if item.author else 'Unknown',
                 'subject': item.subject,
@@ -121,12 +122,12 @@ def get_notifications(api):
             })
         elif isinstance(item, praw.models.Comment):
             notifications.append({
+                'id': item.id,
                 'type': 'Comment',
                 'from': item.author.name if item.author else 'Unknown',
                 'body': item.body
             })
     return notifications
-# TODO: Additional functionalities (Edit, Delete, Save/Unsave) can be implemented here
 
 def get_top_level_comments(api, post_id, limit=10):
     submission = api.submission(post_id)
@@ -140,3 +141,68 @@ def get_all_comments(api, post_id, sort='new', limit=10):
     submission.comments.replace_more(limit=0)
     all_comments = [comment.body for comment in submission.comments.list()[:limit]]
     return all_comments
+
+def send_message(api, recipient, subject, message_body):
+    redditor = api.redditor(recipient)
+    redditor.message(subject, message_body)
+    return f"Message sent to {recipient}"
+
+def edit_comment(api, comment_id, new_text):
+    comment = api.comment(id=comment_id)
+    comment.edit(new_text)
+    return f"Comment {comment_id} edited."
+
+def delete_comment(api, comment_id):
+    comment = api.comment(id=comment_id)
+    comment.delete()
+    return f"Comment {comment_id} deleted."
+
+def save_comment(api, comment_id):
+    comment = api.comment(id=comment_id)
+    comment.save()
+    return f"Comment {comment_id} saved."
+
+def get_trending_posts(api):
+    subreddit = api.subreddit("all")
+    hot_posts = []
+    rising_posts = []
+    
+    for post in subreddit.hot(limit=5):
+        hot_posts.append({
+            'id': post.id,
+            'title': post.title,
+            'subreddit': post.subreddit.display_name,
+            'upvotes': post.score,
+            'comments': post.num_comments
+        })
+
+    for post in subreddit.rising(limit=5):
+        rising_posts.append({
+            'id': post.id,
+            'title': post.title,
+            'subreddit': post.subreddit.display_name,
+            'upvotes': post.score,
+            'comments': post.num_comments
+        })
+
+    return {'Hot Posts': hot_posts, 'Rising Posts': rising_posts}
+
+def get_my_subreddits(api):
+    my_subreddits = []
+    for sub in api.user.subreddits(limit=None):
+        is_banned = False
+        try:
+            # Attempt to fetch subreddit details. This will throw a Forbidden exception if the user is banned.
+            api.subreddit(sub.display_name).subscribers
+        except praw.exceptions.Forbidden:
+            is_banned = True
+        my_subreddits.append({
+            'name': sub.display_name,
+            'is_banned': is_banned
+        })
+    return my_subreddits
+
+def join_subreddit(api, subreddit_name):
+    subreddit = api.subreddit(subreddit_name)
+    subreddit.subscribe()
+    return f"Successfully joined {subreddit_name}"
