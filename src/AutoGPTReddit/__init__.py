@@ -244,15 +244,12 @@ class AutoGPTReddit(AutoGPTPluginTemplate):
                 search_reddit_user,
                 get_top_level_comments,
                 get_all_comments,
-<<<<<<< HEAD
                 get_notifications,
                 send_message,
                 get_trending_posts,
                 get_my_subreddits,
-                join_subreddit
-=======
+                join_subreddit,
                 get_notifications
->>>>>>> 94fd8fd0fd3b20cdee0ae3b6579461d03c3d964f
             )
             prompt.add_command(
     "submit_post",
@@ -308,7 +305,6 @@ class AutoGPTReddit(AutoGPTPluginTemplate):
     {"username": "<username>"},
     lambda username: search_reddit_user(self.api, username)
 )
-<<<<<<< HEAD
             prompt.add_command(
     "get_top_level_comments",
     "Get top-level comments from a Reddit post",
@@ -370,7 +366,7 @@ class AutoGPTReddit(AutoGPTPluginTemplate):
     "Join a subreddit",
     {"subreddit_name": "<subreddit_name>"},
     lambda subreddit_name: join_subreddit(self.api, subreddit_name)
-=======
+                
             prompt.add_command(
     "get_top_level_comments",
     "Get top-level comments from a Reddit post",
@@ -388,7 +384,6 @@ class AutoGPTReddit(AutoGPTPluginTemplate):
     "Retrieve unread Reddit notifications",
     {},  # No additional arguments are needed
     lambda: get_notifications(self.api)
->>>>>>> 94fd8fd0fd3b20cdee0ae3b6579461d03c3d964f
 )
         return prompt
 
