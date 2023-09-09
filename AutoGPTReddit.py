@@ -1,92 +1,179 @@
-import os
-import random
-import time
 
 import praw
 
-
-# Authenticating the Reddit API
-def reddit_authenticate(client_id, client_secret, username, user_agent, password):
-    return praw.Reddit(
-        client_id=client_id,
-        client_secret=client_secret,
-        username=username,
-        user_agent=user_agent,
-        password=password,
-    )
-
-
 class AutoGPTReddit:
-    def __init__(self):
-        # Your initialization logic here
-        self.redditdelay_min = int(os.getenv("REDDITDELAY_MIN", 0))
-        self.redditdelay_max = int(os.getenv("REDDITDELAY_MAX", 0))
+    def __init__(self, reddit_app_id, reddit_app_secret, reddit_user_agent, reddit_username, reddit_password):
+        self.reddit = praw.Reddit(
+            client_id=reddit_app_id,
+            client_secret=reddit_app_secret,
+            user_agent=reddit_user_agent,
+            username=reddit_username,
+            password=reddit_password
+        )
 
-    def apply_randomized_delay(self):
-        # Your randomized delay logic here
-        delay_time = random.randint(self.redditdelay_min, self.redditdelay_max)
-        print(f"Applying randomized delay for {delay_time} seconds...")
-        for i in range(delay_time, 0, -1):
-            print(f"Next cycle in {i} seconds...")
-            time.sleep(1)
+    def fetch_posts(self, args):
+        subreddit_name = args.get('subreddit', 'all')
+        limit = args.get('limit', 10)
+        sort_by = args.get('sort_by', 'hot')
+        subreddit = self.reddit.subreddit(subreddit_name)
+        if sort_by == 'hot':
+            posts = subreddit.hot(limit=limit)
+        elif sort_by == 'new':
+            posts = subreddit.new(limit=limit)
+        elif sort_by == 'top':
+            posts = subreddit.top(limit=limit)
+        post_data = []
+        for post in posts:
+            post_data.append({
+                'id': post.id,
+                'title': post.title,
+                'content': post.selftext,
+                'score': post.score,
+                'comments_count': post.num_comments
+            })
+        return post_data
 
-        # Core command for interacting with Reddit
+    
+    def fetch_comments(self, args):
+        post_id = args['post_id']
+        limit = args.get('limit', 10)
+        sort_by = args.get('sort_by', 'best')  # Options: 'best', 'top', 'new', 'controversial', 'old', 'random', 'qa', 'live'
+        post = self.reddit.submission(id=post_id)
+        post.comment_sort = sort_by
+        post.comments.replace_more(limit=0)
+        comments = post.comments.list()[:limit]
+        comment_data = []
+        for comment in comments:
+            comment_data.append({
+                'id': comment.id,
+                'content': comment.body,
+                'score': comment.score,
+                'parent_id': comment.parent_id
+            })
+        return comment_data
 
-    def reddit_interaction(self, api, type, action, **kwargs):
-        if type == "post":
-            if action == "get":
-                post_text_sample = "This is a sample post text to represent the first 150 characters..."
-                return f"Fetching posts from subreddit: {kwargs.get('subreddit_name', 'all')}, Post ID: 12345, First 150 chars: {post_text_sample[:150]}"
-            elif action == "submit":
-                return f"Submitted post to {kwargs.get('subreddit_name', '')} with title {kwargs.get('title', '')}, Post ID: 67890"
-        elif type == "comment":
-            if action == "get":
-                return f"Fetching comments on post ID: {kwargs.get('post_id', '')}, Comment ID: 111213"
-            elif action == "submit":
-                return f"Submitted comment on post ID: {kwargs.get('post_id', '')}, Comment ID: 141516"
-        else:
-            return "Invalid type or action"
+    def post_comment(self, args):
+        parent_id = args['parent_id']
+        content = args['content']
+        parent_item = self.reddit.comment(id=parent_id) if parent_id.startswith('t1_') else self.reddit.submission(id=parent_id)
+        new_comment = parent_item.reply(content)
+        return {'id': new_comment.id, 'content': new_comment.body}
 
-    # Core command for voting and saving
-    def reddit_vote_save(self, api, action, **kwargs):
-        if action == "upvote":
-            return f"Upvoted post/comment ID: {kwargs.get('post_id', '')}"
-        elif action == "downvote":
-            return f"Downvoted post/comment ID: {kwargs.get('post_id', '')}"
-        elif action == "save":
-            return f"Saved comment ID: {kwargs.get('comment_id', '')}"
-        else:
-            return "Invalid action"
-        self.apply_randomized_delay()
+    def post_thread(self, args):
+        subreddit_name = args['subreddit']
+        title = args['title']
+        content = args['content']
+        subreddit = self.reddit.subreddit(subreddit_name)
+        new_post = subreddit.submit(title, selftext=content)
+        return {'id': new_post.id, 'title': new_post.title}
 
-    # Core command for notifications and messages
-    def reddit_notifications_messages(self, api, action, **kwargs):
-        if action == "get_notifications":
-            return "Fetching notifications, Notification IDs: 171819"
-        elif action == "send_message":
-            return f"Sent message to {kwargs.get('recipient', '')}, Message ID: 202122"
-        else:
-            return "Invalid action"
-        self.apply_randomized_delay()
+    def vote(self, args):
+        item_id = args['id']
+        action = args['action']
+        item = self.reddit.comment(id=item_id) if item_id.startswith('t1_') else self.reddit.submission(id=item_id)
+        if action == 'upvote':
+            item.upvote()
+        elif action == 'downvote':
+            item.downvote()
+        return {'id': item_id, 'action': action}
 
-    # Core command for search and trends
-    def reddit_search_trends(self, api, action, **kwargs):
-        if action == "search_reddit":
-            return f"Searching Reddit for query: {kwargs.get('query', '')}, Result IDs: 232425"
-        elif action == "get_trending":
-            return "Fetching trending posts, Post IDs: 262728"
-        else:
-            return "Invalid action"
-        self.apply_randomized_delay()
+    def fetch_notifications(self, args):
+        limit = args.get('limit', 10)
+        unread_messages = list(self.reddit.inbox.unread(limit=limit))
+        notification_data = []
+        for message in unread_messages:
+            notification_data.append({
+                'id': message.id,
+                'content': message.body,
+                'from': message.author.name if message.author else 'Unknown'
+            })
+        return notification_data
 
-    # Core command for user preferences
-    def reddit_preferences(self, api, action, **kwargs):
-        if action == "change_sort":
-            return f"Changed sort type to {kwargs.get('sort_type', '')}, Preference ID: 2930"
-        else:
-            return "Invalid action"
-        self.apply_randomized_delay()
+    def respond_to_message(self, args):
+        message_id = args['message_id']
+        content = args['content']
+        message = self.reddit.message(id=message_id)
+        message.reply(content)
+        return {'id': message_id, 'response_content': content}
 
-    # Core command for saved items
-    def reddit_saved(self, api, **kwargs):
-        return "Fetching saved items, Item IDs: 313233"
+    def fetch_trending_posts(self, args):
+        subreddit_name = args.get('subreddit', 'all')
+        limit = args.get('limit', 10)
+        sort_by = args.get('sort_by', 'hot')
+        time_filter = args.get('time_filter', 'day')
+        subreddit = self.reddit.subreddit(subreddit_name)
+        if sort_by == 'hot':
+            posts = subreddit.hot(limit=limit, time_filter=time_filter)
+        elif sort_by == 'top':
+            posts = subreddit.top(limit=limit, time_filter=time_filter)
+        post_data = []
+        for post in posts:
+            post_data.append({
+                'id': post.id,
+                'title': post.title,
+                'content': post.selftext,
+                'score': post.score,
+                'comments_count': post.num_comments
+            })
+        return post_data
+
+    def fetch_user_profile(self, args):
+        username = args['username']
+        user = self.reddit.redditor(username)
+        return {
+            'id': user.id,
+            'name': user.name,
+            'karma': user.link_karma + user.comment_karma
+        }
+
+    def fetch_subreddit_info(self, args):
+        subreddit_name = args['subreddit']
+        subreddit = self.reddit.subreddit(subreddit_name)
+        return {
+            'id': subreddit.id,
+            'name': subreddit.display_name,
+            'subscribers': subreddit.subscribers,
+            'description': subreddit.public_description
+        }
+
+    def search_posts(self, args):
+        query = args['query']
+        limit = args.get('limit', 10)
+        posts = self.reddit.subreddit('all').search(query, limit=limit)
+        post_data = []
+        for post in posts:
+            post_data.append({
+                'id': post.id,
+                'title': post.title,
+                'content': post.selftext,
+                'score': post.score,
+                'comments_count': post.num_comments
+            })
+        return post_data
+
+    def search_comments(self, args):
+        query = args['query']
+        limit = args.get('limit', 10)
+        comments = self.reddit.subreddit('all').search_comments(query, limit=limit)
+        comment_data = []
+        for comment in comments:
+            comment_data.append({
+                'id': comment.id,
+                'content': comment.body,
+                'score': comment.score,
+                'parent_id': comment.parent_id
+            })
+        return comment_data
+
+    def delete_item(self, args):
+        item_id = args['id']
+        item = self.reddit.comment(id=item_id) if item_id.startswith('t1_') else self.reddit.submission(id=item_id)
+        item.delete()
+        return {'id': item_id, 'action': 'deleted'}
+
+    def edit_item(self, args):
+        item_id = args['id']
+        new_content = args['content']
+        item = self.reddit.comment(id=item_id) if item_id.startswith('t1_') else self.reddit.submission(id=item_id)
+        item.edit(new_content)
+        return {'id': item_id, 'new_content': new_content}

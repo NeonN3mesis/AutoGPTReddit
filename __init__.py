@@ -21,7 +21,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
     def __init__(self):
         super().__init__()
         self._name = "autogpt-reddit"
-        self._version = "0.2.0"
+        self._version = "0.5.0"
         self._description = "Reddit API integrations using PRAW."
         self.client_id = os.getenv("REDDIT_CLIENT_ID")
         self.client_secret = os.getenv("REDDIT_CLIENT_SECRET")
@@ -238,6 +238,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
         """
         return None
 
+    
     def post_prompt(self, prompt: PromptGenerator) -> PromptGenerator:
         """This method is called just after the generate_prompt is called,
             but actually before the prompt is generated.
@@ -247,76 +248,85 @@ class RedditPlugin(AutoGPTPluginTemplate):
             PromptGenerator: The prompt generator.
         """
         if self.api:
-            reddit_instance = AutoGPTReddit()
-
+            reddit_instance = AutoGPTReddit(self.client_id, self.client_secret, self.user_agent, self.username, self.password)
+           
             # New core commands
             prompt.add_command(
-                "reddit_interaction",
-                "Interact with Reddit posts, comments, and more",
+                'fetch_posts',
+                'Fetch posts from a subreddit',
                 {
-                    "type": "<type>",
-                    "action": "<action>",
-                    "subreddit_name": "<subreddit_name>",
-                    "post_id": "<post_id>",
-                    "comment_id": "<comment_id>",
-                    "text": "<text>",
-                    "number": "<number>",
-                    "flair_id": "<flair_id>",
-                    "is_sticky": "<is_sticky>",
-                    "sort": "<sort>",
-                    "multi_name": "<multi_name>",
-                    "multi_subs": "<multi_subs>",
-                    "visibility": "<visibility>",
+                    'subreddit': 'Name of the subreddit (default is "all")',
+                    'limit': 'Number of posts to fetch (default is 10)',
+                    'sort_by': 'Sorting criteria ("hot", "new", "top"; default is "hot")'
                 },
-                lambda **kwargs: reddit_instance.reddit_interaction(self.api, **kwargs),
+                lambda **kwargs: reddit_instance.fetch_posts(kwargs)
             )
             prompt.add_command(
-                "reddit_vote_save",
-                "Vote or save Reddit posts or comments",
+                'fetch_comments',
+                'Fetch comments from a post',
                 {
-                    "action": "<action>",
-                    "post_id": "<post_id>",
-                    "object_type": "<object_type>",
+                    'post_id': 'ID of the post',
+                    'limit': 'Number of comments to fetch (default is 10)',
+                    'sort_by': 'Sorting criteria ("best", "top", "new", "controversial", "old", "random", "qa", "live"; default is "best")'
                 },
-                lambda **kwargs: reddit_instance.reddit_vote_save(self.api, **kwargs),
+                lambda **kwargs: reddit_instance.fetch_comments(kwargs)
             )
-        prompt.add_command(
-            "reddit_notifications_messages",
-            "Retrieve notifications or send messages",
-            {
-                "action": "<action>",
-                "recipient": "<recipient>",
-                "subject": "<subject>",
-                "message_body": "<message_body>",
-            },
-            lambda **kwargs: reddit_instance.reddit_notifications_messages(
-                self.api, **kwargs
-            ),
-        )
-        prompt.add_command(
-            "reddit_search_trends",
-            "Search Reddit or get trending posts",
-            {
-                "action": "<action>",
-                "query": "<query>",
-                "subreddit": "<subreddit>",
-                "number_of_posts": "<number_of_posts>",
-            },
-            lambda **kwargs: reddit_instance.reddit_search_trends(self.api, **kwargs),
-        )
-        prompt.add_command(
-            "reddit_preferences",
-            "Change user preferences",
-            {"action": "<action>", "sort_type": "<sort_type>"},
-            lambda **kwargs: reddit_instance.reddit_preferences(self.api, **kwargs),
-        )
-        prompt.add_command(
-            "reddit_saved",
-            "Retrieve saved items",
-            {},
-            lambda: reddit_instance.reddit_saved(self.api),
-        )
-
+            prompt.add_command(
+                'post_comment',
+                'Post a comment',
+                {
+                    'parent_id': 'ID of the parent post or comment',
+                    'content': 'Content of the comment'
+                },
+                lambda **kwargs: reddit_instance.post_comment(kwargs)
+            )
+            prompt.add_command(
+                'post_thread',
+                'Post a new thread',
+                {
+                    'subreddit': 'Name of the subreddit',
+                    'title': 'Title of the post',
+                    'content': 'Content of the post'
+                },
+                lambda **kwargs: reddit_instance.post_thread(kwargs)
+            )
+            prompt.add_command(
+                'vote',
+                'Vote on a post or comment',
+                {
+                    'id': 'ID of the post or comment',
+                    'action': 'Vote action ("upvote", "downvote")'
+                },
+                lambda **kwargs: reddit_instance.vote(kwargs)
+            )
+            prompt.add_command(
+                'fetch_notifications',
+                'Fetch unread notifications',
+                {
+                    'limit': 'Number of notifications to fetch (default is 10)'
+                },
+                lambda **kwargs: reddit_instance.fetch_notifications(kwargs)
+            )
+            prompt.add_command(
+                'respond_to_message',
+                'Respond to a message',
+                {
+                    'message_id': 'ID of the message',
+                    'content': 'Content of the response'
+                },
+                lambda **kwargs: reddit_instance.respond_to_message(kwargs)
+            )
+            prompt.add_command(
+                'fetch_trending_posts',
+                'Fetch trending posts',
+                {
+                    'subreddit': 'Name of the subreddit (default is "all")',
+                    'limit': 'Number of posts to fetch (default is 10)',
+                    'sort_by': 'Sorting criteria ("hot", "top"; default is "hot")',
+                    'time_filter': 'Time filter for trending posts ("day", "week", "month", "year", "all"; default is "day")'
+                },
+                lambda **kwargs: reddit_instance.fetch_trending_posts(kwargs)
+            )
         return prompt
 
     def can_handle_text_embedding(self, text: str) -> bool:
