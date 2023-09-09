@@ -2,6 +2,7 @@
 import praw
 
 class AutoGPTReddit:
+    # Initializes the Reddit API client using PRAW.
     def __init__(self, reddit_app_id, reddit_app_secret, reddit_user_agent, reddit_username, reddit_password):
         self.reddit = praw.Reddit(
             client_id=reddit_app_id,
@@ -10,7 +11,8 @@ class AutoGPTReddit:
             username=reddit_username,
             password=reddit_password
         )
-
+    # Fetches posts from a specified subreddit.
+    # args: Dictionary containing 'subreddit', 'limit', and 'sort_by' keys.
     def fetch_posts(self, args):
         subreddit_name = args.get('subreddit', 'all')
         limit = args.get('limit', 10)
@@ -33,7 +35,8 @@ class AutoGPTReddit:
             })
         return post_data
 
-    
+    # Fetches comments from a specified post.
+    # args: Dictionary containing 'post_id', 'limit', and 'sort_by' keys.
     def fetch_comments(self, args):
         post_id = args['post_id']
         limit = args.get('limit', 10)
@@ -102,11 +105,17 @@ class AutoGPTReddit:
         sort_by = args.get('sort_by', 'hot')
         time_filter = args.get('time_filter', 'day')
         subreddit = self.reddit.subreddit(subreddit_name)
+        
+        # Fetch posts based on the sort_by criteria
         if sort_by == 'hot':
-            posts = subreddit.hot(limit=limit, time_filter=time_filter)
+            posts = subreddit.hot(limit=limit)  # Removed time_filter
         elif sort_by == 'top':
-            posts = subreddit.top(limit=limit, time_filter=time_filter)
+            posts = subreddit.top(limit=limit, time_filter=time_filter)  # time_filter is valid here
+        
+        # Initialize an empty list to store post data
         post_data = []
+        
+        # Loop through each post to extract necessary data
         for post in posts:
             post_data.append({
                 'id': post.id,
@@ -115,6 +124,8 @@ class AutoGPTReddit:
                 'score': post.score,
                 'comments_count': post.num_comments
             })
+        
+        # Return the list of posts
         return post_data
 
     def fetch_user_profile(self, args):
