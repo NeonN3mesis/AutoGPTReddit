@@ -32,14 +32,6 @@ class RedditPlugin(AutoGPTPluginTemplate):
         self.posts = []
         self.api = None
         self.rate_limit_reset_time = None
-        self.redditdelay_min = int(os.getenv("REDDITDELAY_MIN", 0))
-        self.redditdelay_max = int(os.getenv("REDDITDELAY_MAX", 0))
-        # Error checking to ensure REDDITDELAY_MAX is greater than or equal to REDDITDELAY_MIN
-        if self.redditdelay_max < self.redditdelay_min:
-            print(
-                "Error: REDDITDELAY_MAX must be greater than or equal to REDDITDELAY_MIN."
-            )
-            self.redditdelay_max = self.redditdelay_min
 
         if (
             self.client_id
@@ -66,7 +58,6 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 return remaining_time
         return 0
 
-    
     def can_handle_on_response(self) -> bool:
         """This method is called to check that the plugin can
         handle the on_response method.
@@ -193,21 +184,21 @@ class RedditPlugin(AutoGPTPluginTemplate):
         return True
 
     def post_command(self, command_name: str, response: str) -> str:
-        rate_limit_info = {}
-        remaining_time = self.rate_limit_countdown()  # Calling the rate_limit_countdown function
-        if remaining_time > 0:
-            rate_limit_info['rate_limit_active'] = True
-            rate_limit_info['remaining_time'] = remaining_time
-        else:
-            rate_limit_info['rate_limit_active'] = False
+        remaining_time = self.rate_limit_countdown()  # Check if rate-limited
+        rate_limit_active = bool(
+            remaining_time > 0
+        )  # Determine if rate limit is active
 
+        # Construct the response
         response_with_rate_limit = {
-            'original_response': response,
-            'rate_limit_info': rate_limit_info
+            "original_response": response,
+            "rate_limit_info": {
+                "rate_limit_active": rate_limit_active,
+                "remaining_time": remaining_time if rate_limit_active else 0,
+            },
         }
 
         return response_with_rate_limit
-
 
     def can_handle_chat_completion(
         self,
@@ -245,7 +236,6 @@ class RedditPlugin(AutoGPTPluginTemplate):
         """
         return None
 
-    
     def post_prompt(self, prompt: PromptGenerator) -> PromptGenerator:
         """This method is called just after the generate_prompt is called,
             but actually before the prompt is generated.
@@ -255,97 +245,107 @@ class RedditPlugin(AutoGPTPluginTemplate):
             PromptGenerator: The prompt generator.
         """
         if self.api:
-            reddit_instance = AutoGPTReddit(self.client_id, self.client_secret, self.user_agent, self.username, self.password)
-           
+            reddit_instance = AutoGPTReddit(
+                self.client_id,
+                self.client_secret,
+                self.user_agent,
+                self.username,
+                self.password,
+            )
+
             # New core commands
             prompt.add_command(
-                'fetch_posts',
-                'Fetch posts from a subreddit',
+                "fetch_posts",
+                "Fetch posts from a subreddit",
                 {
-                    'subreddit': 'Name of the subreddit (default is "all")',
-                    'limit': 'Number of posts to fetch (default is 10)',
-                    'sort_by': 'Sorting criteria ("hot", "new", "top"; default is "hot")'
+                    "subreddit": 'Name of the subreddit (default is "all")',
+                    "limit": "Number of posts to fetch (default is 10)",
+                    "sort_by": 'Sorting criteria ("hot", "new", "top"; default is "hot")',
                 },
-                lambda **kwargs: reddit_instance.fetch_posts(kwargs)
+                lambda **kwargs: reddit_instance.fetch_posts(kwargs),
             )
             prompt.add_command(
-                'fetch_comments',
-                'Fetch comments from a post',
+                "fetch_comments",
+                "Fetch comments from a post",
                 {
-                    'post_id': 'ID of the post',
-                    'limit': 'Number of comments to fetch (default is 10)',
-                    'sort_by': 'Sorting criteria ("best", "top", "new", "controversial", "old", "random", "qa", "live"; default is "best")'
+                    "post_id": "ID of the post",
+                    "limit": "Number of comments to fetch (default is 10)",
+                    "sort_by": 'Sorting criteria ("best", "top", "new", "controversial", "old", "random", "qa", "live"; default is "best")',
                 },
-                lambda **kwargs: reddit_instance.fetch_comments(kwargs)
+                lambda **kwargs: reddit_instance.fetch_comments(kwargs),
             )
             prompt.add_command(
-                'post_comment',
-                'Post a comment',
+                "post_comment",
+                "Post a comment",
                 {
-                    'parent_id': 'ID of the parent post or comment',
-                    'content': 'Content of the comment'
+                    "parent_id": "ID of the parent post or comment",
+                    "content": "Content of the comment",
                 },
-                lambda **kwargs: reddit_instance.post_comment(kwargs)
+                lambda **kwargs: reddit_instance.post_comment(kwargs),
             )
             prompt.add_command(
-                'post_thread',
-                'Post a new thread',
+                "post_thread",
+                "Post a new thread",
                 {
-                    'subreddit': 'Name of the subreddit',
-                    'title': 'Title of the post',
-                    'content': 'Content of the post'
+                    "subreddit": "Name of the subreddit",
+                    "title": "Title of the post",
+                    "content": "Content of the post",
                 },
-                lambda **kwargs: reddit_instance.post_thread(kwargs)
+                lambda **kwargs: reddit_instance.post_thread(kwargs),
             )
             prompt.add_command(
-                'vote',
-                'Vote on a post or comment',
+                "vote",
+                "Vote on a post or comment",
                 {
-                    'id': 'ID of the post or comment',
-                    'action': 'Vote action ("upvote", "downvote")'
+                    "id": "ID of the post or comment",
+                    "action": 'Vote action ("upvote", "downvote")',
                 },
-                lambda **kwargs: reddit_instance.vote(kwargs)
+                lambda **kwargs: reddit_instance.vote(kwargs),
             )
             prompt.add_command(
-                'fetch_notifications',
-                'Fetch unread notifications',
+                "fetch_notifications",
+                "Fetch unread notifications",
+                {"limit": "Number of notifications to fetch (default is 10)"},
+                lambda **kwargs: reddit_instance.fetch_notifications(kwargs),
+            )
+            prompt.add_command(
+                "respond_to_message",
+                "Respond to a message",
                 {
-                    'limit': 'Number of notifications to fetch (default is 10)'
+                    "message_id": "ID of the message",
+                    "content": "Content of the response",
                 },
-                lambda **kwargs: reddit_instance.fetch_notifications(kwargs)
+                lambda **kwargs: reddit_instance.respond_to_message(kwargs),
             )
             prompt.add_command(
-                'respond_to_message',
-                'Respond to a message',
+                "fetch_trending_posts",
+                "Fetch trending posts",
                 {
-                    'message_id': 'ID of the message',
-                    'content': 'Content of the response'
+                    "subreddit": 'Name of the subreddit (default is "all")',
+                    "limit": "Number of posts to fetch (default is 10)",
+                    "sort_by": 'Sorting criteria ("hot", "top"; default is "hot")',
+                    "time_filter": 'Time filter for trending posts ("day", "week", "month", "year", "all"; default is "day")',
                 },
-                lambda **kwargs: reddit_instance.respond_to_message(kwargs)
+                lambda **kwargs: reddit_instance.fetch_trending_posts(kwargs),
             )
             prompt.add_command(
-                'fetch_trending_posts',
-                'Fetch trending posts',
-                {
-                    'subreddit': 'Name of the subreddit (default is "all")',
-                    'limit': 'Number of posts to fetch (default is 10)',
-                    'sort_by': 'Sorting criteria ("hot", "top"; default is "hot")',
-                    'time_filter': 'Time filter for trending posts ("day", "week", "month", "year", "all"; default is "day")'
-                },
-                lambda **kwargs: reddit_instance.fetch_trending_posts(kwargs)
+                "subscribe_subreddit",
+                "Subscribe to a subreddit",
+                {"subreddit": "Name of the subreddit"},
+                lambda **kwargs: reddit_instance.subscribe_subreddit(kwargs),
+            )
+
+            prompt.add_command(
+                "get_subscribed_subreddits",
+                "Get a list of subscribed subreddits",
+                {"limit": "Number of subreddits to fetch (default is 10)"},
+                lambda **kwargs: reddit_instance.get_subscribed_subreddits(kwargs),
             )
             prompt.add_command(
-                'subscribe_subreddit',
-                'Subscribe to a subreddit',
-                {'subreddit': 'Name of the subreddit'},
-                lambda **kwargs: reddit_instance.subscribe_subreddit(kwargs)
-            )
-            
-            prompt.add_command(
-                'get_subscribed_subreddits',
-                'Get a list of subscribed subreddits',
-                {'limit': 'Number of subreddits to fetch (default is 10)'},
-                lambda **kwargs: reddit_instance.get_subscribed_subreddits(kwargs)
+                "get_subreddit_info",
+                "Fetch information about a specific subreddit",
+                {"subreddit": "Name of the subreddit"},
+                lambda **kwargs: reddit_instance.get_subreddit_info(kwargs),
             )
         return prompt
 
