@@ -28,8 +28,6 @@ Delay fuction is being refactored. Coming soon.
    REDDIT_USERNAME=
    REDDIT_USER_AGENT=
    REDDIT_PASSWORD=
-   REDDITDELAY_MIN=5
-   REDDITDELY_MAX=10
    ```
 
 ### Reddit API Setup Instructions
