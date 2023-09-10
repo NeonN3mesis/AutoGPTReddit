@@ -31,6 +31,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
         self.post_id = []
         self.posts = []
         self.api = None
+        self.rate_limit_reset_time = None
         self.redditdelay_min = int(os.getenv("REDDITDELAY_MIN", 0))
         self.redditdelay_max = int(os.getenv("REDDITDELAY_MAX", 0))
         # Error checking to ensure REDDITDELAY_MAX is greater than or equal to REDDITDELAY_MIN
@@ -58,14 +59,14 @@ class RedditPlugin(AutoGPTPluginTemplate):
         else:
             print("Reddit credentials not found in .env file.")
 
-    def apply_randomized_delay(self):
-        # Your randomized delay logic here
-        delay_time = random.randint(self.redditdelay_min, self.redditdelay_max)
-        print(f"Applying randomized delay for {delay_time} seconds...")
-        for i in range(delay_time, 0, -1):
-            print(f"Next cycle in {i} seconds...")
-            time.sleep(1)
+    def rate_limit_countdown(self):
+        if self.rate_limit_reset_time:
+            remaining_time = self.rate_limit_reset_time - time.time()
+            if remaining_time > 0:
+                return remaining_time
+        return 0
 
+    
     def can_handle_on_response(self) -> bool:
         """This method is called to check that the plugin can
         handle the on_response method.
@@ -189,18 +190,24 @@ class RedditPlugin(AutoGPTPluginTemplate):
         handle the post_command method.
         Returns:
             bool: True if the plugin can handle the post_command method."""
-        return False
+        return True
 
     def post_command(self, command_name: str, response: str) -> str:
-        """This method is called after the command is executed.
+        rate_limit_info = {}
+        remaining_time = self.rate_limit_countdown()  # Calling the rate_limit_countdown function
+        if remaining_time > 0:
+            rate_limit_info['rate_limit_active'] = True
+            rate_limit_info['remaining_time'] = remaining_time
+        else:
+            rate_limit_info['rate_limit_active'] = False
 
-        Args:
-            command_name (str): The command name.
-            response (str): The response.
+        response_with_rate_limit = {
+            'original_response': response,
+            'rate_limit_info': rate_limit_info
+        }
 
-        Returns:
-            str: The resulting response.
-        """
+        return response_with_rate_limit
+
 
     def can_handle_chat_completion(
         self,
@@ -326,6 +333,19 @@ class RedditPlugin(AutoGPTPluginTemplate):
                     'time_filter': 'Time filter for trending posts ("day", "week", "month", "year", "all"; default is "day")'
                 },
                 lambda **kwargs: reddit_instance.fetch_trending_posts(kwargs)
+            )
+            prompt.add_command(
+                'subscribe_subreddit',
+                'Subscribe to a subreddit',
+                {'subreddit': 'Name of the subreddit'},
+                lambda **kwargs: reddit_instance.subscribe_subreddit(kwargs)
+            )
+            
+            prompt.add_command(
+                'get_subscribed_subreddits',
+                'Get a list of subscribed subreddits',
+                {'limit': 'Number of subreddits to fetch (default is 10)'},
+                lambda **kwargs: reddit_instance.get_subscribed_subreddits(kwargs)
             )
         return prompt
 

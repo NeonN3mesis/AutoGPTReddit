@@ -1,5 +1,7 @@
 
 import praw
+import prawcore
+import time
 
 class AutoGPTReddit:
     # Initializes the Reddit API client using PRAW.
@@ -11,6 +13,7 @@ class AutoGPTReddit:
             username=reddit_username,
             password=reddit_password
         )
+        self.rate_limit_reset_time = None  # Add this line to initialize rate_limit_reset_time
     # Fetches posts from a specified subreddit.
     # args: Dictionary containing 'subreddit', 'limit', and 'sort_by' keys.
     def fetch_posts(self, args):
@@ -18,21 +21,25 @@ class AutoGPTReddit:
         limit = args.get('limit', 10)
         sort_by = args.get('sort_by', 'hot')
         subreddit = self.reddit.subreddit(subreddit_name)
+
         if sort_by == 'hot':
             posts = subreddit.hot(limit=limit)
         elif sort_by == 'new':
             posts = subreddit.new(limit=limit)
         elif sort_by == 'top':
             posts = subreddit.top(limit=limit)
+
         post_data = []
         for post in posts:
-            post_data.append({
-                'id': post.id,
-                'title': post.title,
-                'content': post.selftext,
-                'score': post.score,
-                'comments_count': post.num_comments
-            })
+            if post.selftext:  # Check if selftext is not empty
+                post_data.append({
+                    'id': post.id,
+                    'title': post.title,
+                    'content': post.selftext,  # Replacing 'content' with 'text'
+                    'score': post.score,
+                    'comments_count': post.num_comments
+                })
+
         return post_data
 
     # Fetches comments from a specified post.
@@ -56,19 +63,32 @@ class AutoGPTReddit:
         return comment_data
 
     def post_comment(self, args):
-        parent_id = args['parent_id']
-        content = args['content']
-        parent_item = self.reddit.comment(id=parent_id) if parent_id.startswith('t1_') else self.reddit.submission(id=parent_id)
-        new_comment = parent_item.reply(content)
-        return {'id': new_comment.id, 'content': new_comment.body}
+        try:
+            parent_id = args['parent_id']
+            content = args['content']
+            parent_item = self.reddit.comment(id=parent_id) if parent_id.startswith('t1_') else self.reddit.submission(id=parent_id)
+            new_comment = parent_item.reply(content)
+            return {'id': new_comment.id, 'message': 'Comment posted successfully'}
+        except prawcore.exceptions.RequestException as e:
+            if 'RATELIMIT' in str(e):
+                self.rate_limit_reset_time = time.time() + int(e.response.headers.get('x-ratelimit-reset', 0))
+                return {'error': 'Rate limit exceeded', 'remaining_time': e.response.headers.get('x-ratelimit-reset', 0), 'rate_limit_active': True}
+            return {'error': 'An error occurred'}
 
     def post_thread(self, args):
-        subreddit_name = args['subreddit']
-        title = args['title']
-        content = args['content']
-        subreddit = self.reddit.subreddit(subreddit_name)
-        new_post = subreddit.submit(title, selftext=content)
-        return {'id': new_post.id, 'title': new_post.title}
+        try:
+            subreddit_name = args['subreddit']
+            title = args['title']
+            content = args['content']
+            subreddit = self.reddit.subreddit(subreddit_name)
+            new_post = subreddit.submit(title, selftext=content)
+            return {'id': new_post.id, 'message': 'Thread posted successfully'}
+        except prawcore.exceptions.RequestException as e:
+            if 'RATELIMIT' in str(e):
+                self.rate_limit_reset_time = time.time() + int(e.response.headers.get('x-ratelimit-reset', 0))
+                return {'error': 'Rate limit exceeded', 'remaining_time': e.response.headers.get('x-ratelimit-reset', 0), 'rate_limit_active': True}
+            return {'error': 'An error occurred'}
+
 
     def vote(self, args):
         item_id = args['id']
@@ -188,3 +208,38 @@ class AutoGPTReddit:
         item = self.reddit.comment(id=item_id) if item_id.startswith('t1_') else self.reddit.submission(id=item_id)
         item.edit(new_content)
         return {'id': item_id, 'new_content': new_content}
+
+    def check_rate_limit(self):
+        """Check if rate limiting is currently active and if so, how much time is remaining."""
+        if self.rate_limit_reset_time:
+            remaining_time = self.rate_limit_reset_time - time.time()
+            if remaining_time > 0:
+                return remaining_time
+        return None
+
+    def update_rate_limit_reset_time(self, reset_time_seconds):
+        """Update the time when the rate limit will be reset."""
+        self.rate_limit_reset_time = time.time() + reset_time_seconds
+
+    def subscribe_subreddit(self, args):
+        try:
+            subreddit_name = args['subreddit']
+            subreddit = self.reddit.subreddit(subreddit_name)
+            subreddit.subscribe()
+            return {'message': f'Successfully subscribed to {subreddit_name}'}
+        except prawcore.exceptions.RequestException as e:
+            return {'error': 'An error occurred while subscribing'}
+        
+    def get_subscribed_subreddits(self, args=None):
+        try:
+            limit = int(args.get('limit', 50)) if args else 50  # Set a default limit of 50 if not provided
+            subscribed_subreddits = [sub.display_name for sub in self.reddit.user.subreddits(limit=limit)]
+            return {'subscribed_subreddits': subscribed_subreddits}
+        except prawcore.exceptions.RequestException as e:
+            if 'RATELIMIT' in str(e):
+                self.rate_limit_reset_time = time.time() + int(e.response.headers.get('x-ratelimit-reset', 0))
+                return {'error': 'Rate limit exceeded', 'remaining_time': e.response.headers.get('x-ratelimit-reset', 0), 'rate_limit_active': True}
+            return {'error': 'An error occurred'}
+
+
+        
