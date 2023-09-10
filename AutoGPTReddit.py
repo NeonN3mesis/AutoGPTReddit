@@ -137,17 +137,16 @@ class AutoGPTReddit:
         return {"id": item_id, "action": action}
 
     def fetch_notifications(self, args):
-        limit = args.get("limit", 10)
+        limit = min(args.get('limit', 10), 5)  # Set a maximum limit if you want
         unread_messages = list(self.reddit.inbox.unread(limit=limit))
         notification_data = []
         for message in unread_messages:
-            notification_data.append(
-                {
-                    "id": message.id,
-                    "content": message.body,
-                    "from": message.author.name if message.author else "Unknown",
-                }
-            )
+            truncated_content = message.body[:200]  # Truncate content to the first 100 characters
+            notification_data.append({
+                'id': message.id,
+                'from': message.author.name if message.author else 'Unknown',
+                'truncated_content': truncated_content + '...' if len(message.body) > 200 else truncated_content
+            })
         return notification_data
 
     def respond_to_message(self, args):
@@ -322,3 +321,21 @@ class AutoGPTReddit:
             }
         except Exception as e:
             return {"error": f"An error occurred: {e}"}
+
+    def get_popular_subreddits(self, args):
+        try:
+            limit = int(args.get('limit', 50))  # Set a default limit of 50 if not provided
+            subreddits = [sub.display_name for sub in self.reddit.subreddit('popular').hot(limit=limit)]
+            return {'popular_subreddits': subreddits}
+        except Exception as e:
+            return {'error': f'An error occurred: {e}'}
+
+    def read_notification(self, args):
+        message_id = args['message_id']
+        message = self.reddit.message(id=message_id)
+        return {
+            'id': message.id,
+            'content': message.body,
+            'from': message.author.name if message.author else 'Unknown',
+            # Add any other fields you need
+        }

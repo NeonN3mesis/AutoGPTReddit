@@ -347,6 +347,21 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 {"subreddit": "Name of the subreddit"},
                 lambda **kwargs: reddit_instance.get_subreddit_info(kwargs),
             )
+            prompt.add_command(
+                'get_popular_subreddits',
+                'Fetch a list of popular subreddits',
+                {
+                    'limit': 'Number of subreddits to fetch (default is 50)'
+                },
+                lambda **kwargs: reddit_instance.get_popular_subreddits(kwargs)
+            )
+            prompt.add_command(
+                'read_notification',
+                'Read a specific notification',
+                {'message_id': 'ID of the message to read'},
+                lambda **kwargs: reddit_instance.read_notification(kwargs)
+            )
+
         return prompt
 
     def can_handle_text_embedding(self, text: str) -> bool:
