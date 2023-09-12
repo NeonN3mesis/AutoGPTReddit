@@ -21,7 +21,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
     def __init__(self):
         super().__init__()
         self._name = "autogpt-reddit"
-        self._version = "0.5.0"
+        self._version = "1.0.0"
         self._description = "Reddit API integrations using PRAW."
         self.client_id = os.getenv("REDDIT_CLIENT_ID")
         self.client_secret = os.getenv("REDDIT_CLIENT_SECRET")
@@ -41,22 +41,29 @@ class RedditPlugin(AutoGPTPluginTemplate):
             and self.password
         ) is not None:
             # Authenticate to reddit
-            self.api = praw.Reddit(
-                client_id=self.client_id,
-                client_secret=self.client_secret,
-                username=self.username,
-                user_agent=self.user_agent,
-                password=self.password,
+            self.api = (
+                AutoGPTReddit(  # Initialize your own Reddit API wrapper class here
+                    self.client_id,
+                    self.client_secret,
+                    self.user_agent,
+                    self.username,
+                    self.password,
+                )
             )
         else:
             print("Reddit credentials not found in .env file.")
+            self.api = None
 
     def rate_limit_countdown(self):
-        if self.rate_limit_reset_time:
-            remaining_time = self.rate_limit_reset_time - time.time()
-            if remaining_time > 0:
-                return remaining_time
-        return 0
+        remaining_time_api = (
+            self.rate_limit_reset_time - time.time()
+            if self.rate_limit_reset_time
+            else 0
+        )
+        remaining_time_new_user = (
+            self.api.check_new_user_rate_limit() if self.api else 0
+        )  # This should now work
+        return max(remaining_time_api, remaining_time_new_user)
 
     def can_handle_on_response(self) -> bool:
         """This method is called to check that the plugin can
@@ -181,24 +188,10 @@ class RedditPlugin(AutoGPTPluginTemplate):
         handle the post_command method.
         Returns:
             bool: True if the plugin can handle the post_command method."""
-        return True
+        return False
 
     def post_command(self, command_name: str, response: str) -> str:
-        remaining_time = self.rate_limit_countdown()  # Check if rate-limited
-        rate_limit_active = bool(
-            remaining_time > 0
-        )  # Determine if rate limit is active
-
-        # Construct the response
-        response_with_rate_limit = {
-            "original_response": response,
-            "rate_limit_info": {
-                "rate_limit_active": rate_limit_active,
-                "remaining_time": remaining_time if rate_limit_active else 0,
-            },
-        }
-
-        return response_with_rate_limit
+        pass
 
     def can_handle_chat_completion(
         self,
@@ -256,7 +249,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
             # New core commands
             prompt.add_command(
                 "fetch_posts",
-                "Fetch posts from a subreddit",
+                "Fetch posts from a subreddit along with IDs, truncated text, and other metadata",
                 {
                     "subreddit": 'Name of the subreddit (default is "all")',
                     "limit": "Number of posts to fetch (default is 10)",
@@ -266,7 +259,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
             )
             prompt.add_command(
                 "fetch_comments",
-                "Fetch comments from a post",
+                "Fetch comments from a post along with IDs and other metadata",
                 {
                     "post_id": "ID of the post",
                     "limit": "Number of comments to fetch (default is 10)",
@@ -276,7 +269,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
             )
             prompt.add_command(
                 "post_comment",
-                "Post a comment",
+                "Post a comment. (It's a good idea to make sure you haven't already responded to a comment first.)",
                 {
                     "parent_id": "ID of the parent post or comment",
                     "content": "Content of the comment",
@@ -304,19 +297,20 @@ class RedditPlugin(AutoGPTPluginTemplate):
             )
             prompt.add_command(
                 "fetch_notifications",
-                "Fetch unread notifications",
+                "Fetch unread notifications. (Only respond to any single notification one time.)",
                 {"limit": "Number of notifications to fetch (default is 10)"},
                 lambda **kwargs: reddit_instance.fetch_notifications(kwargs),
             )
             prompt.add_command(
                 "respond_to_message",
-                "Respond to a message",
+                "Respond to a message. (Only respond to any single message one time.",
                 {
                     "message_id": "ID of the message",
                     "content": "Content of the response",
                 },
                 lambda **kwargs: reddit_instance.respond_to_message(kwargs),
             )
+
             prompt.add_command(
                 "fetch_trending_posts",
                 "Fetch trending posts",
@@ -348,18 +342,16 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 lambda **kwargs: reddit_instance.get_subreddit_info(kwargs),
             )
             prompt.add_command(
-                'get_popular_subreddits',
-                'Fetch a list of popular subreddits',
-                {
-                    'limit': 'Number of subreddits to fetch (default is 50)'
-                },
-                lambda **kwargs: reddit_instance.get_popular_subreddits(kwargs)
+                "get_popular_subreddits",
+                "Fetch a list of popular subreddits",
+                {"limit": "Number of subreddits to fetch (default is 50)"},
+                lambda **kwargs: reddit_instance.get_popular_subreddits(kwargs),
             )
             prompt.add_command(
-                'read_notification',
-                'Read a specific notification',
-                {'message_id': 'ID of the message to read'},
-                lambda **kwargs: reddit_instance.read_notification(kwargs)
+                "read_notification",
+                "Read a specific notification",
+                {"message_id": "ID of the message to read"},
+                lambda **kwargs: reddit_instance.read_notification(kwargs),
             )
 
         return prompt
