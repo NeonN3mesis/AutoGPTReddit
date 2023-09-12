@@ -28,13 +28,20 @@ class AutoGPTReddit:
     # args: Dictionary containing 'subreddit', 'limit', and 'sort_by' keys.
     def fetch_posts(self, args) -> str:
         response = {"status": "success"}
+        char_count = 0  # Initialize character count for truncation
         try:
             subreddit_name = args.get("subreddit", "all")
-            sort = args.get("sort_by", "hot")
+            sort_by = args.get("sort_by", "hot")
             limit = args.get("limit", 10)
+            time_filter = args.get("time_filter", "day")
 
             subreddit = self.reddit.subreddit(subreddit_name)
-            posts = subreddit.hot(limit=limit)  # Fetch posts
+
+            # Sort posts
+            if sort_by == "hot":
+                posts = subreddit.hot(limit=limit)
+            elif sort_by == "top":
+                posts = subreddit.top(limit=limit, time_filter=time_filter)
 
             output = []
             for post in posts:
@@ -53,6 +60,11 @@ class AutoGPTReddit:
                     }
                     output.append(post_info)
 
+                    # Check for character count
+                    char_count += len(json.dumps(post_info))
+                    if char_count >= 2500:
+                        break
+
             response["data"] = output
         except Exception as e:
             response["status"] = "error"
@@ -60,10 +72,12 @@ class AutoGPTReddit:
 
         return json.dumps(response)
 
+
     # Fetches comments from a specified post.
     # args: Dictionary containing 'post_id', 'limit', and 'sort_by' keys.
     def fetch_comments(self, args) -> str:
         response = {"status": "success"}
+        char_count = 0  # Initialize character count for truncation
         try:
             post_id = args.get("post_id")
             sort = args.get("sort_by", "best")
@@ -79,58 +93,33 @@ class AutoGPTReddit:
                 submission.comment_sort = "new"
             elif sort == "top":
                 submission.comment_sort = "top"
-            # Add other sorting criteria as needed
-
-            output = []
+            
+            # Replace 'more' comments and fetch the top comments
             submission.comments.replace_more(limit=0)
             comments = submission.comments.list()[:limit]
 
+            output = []
             for comment in comments:
                 comment_info = {
                     "Comment ID": comment.id,
                     "Parent ID": comment.parent_id,
-                    "Content": comment.body[
-                        :100
-                    ],  # Truncate content to 100 characters for each comment
+                    "Content": comment.body[:100],  # Truncate content
                     "Upvotes": comment.ups,
                     "Downvotes": comment.downs,
                     "Subreddit": str(comment.subreddit),
-                    "Author": str(comment.author),
+                    "Author": str(comment.author), 
                 }
                 output.append(comment_info)
+
+                # Check for character count
+                char_count += len(json.dumps(comment_info))
+                if char_count >= 2500:
+                    break
 
             response["data"] = output
         except Exception as e:
             response["status"] = "error"
             response["message"] = str(e)
-
-        return json.dumps(response)
-
-    def post_thread(self, args) -> str:
-        response = {"status": "success"}
-        try:
-            subreddit_name = args["subreddit"]
-            title = args["title"]
-            content = args["content"]
-            subreddit = self.reddit.subreddit(subreddit_name)
-            new_post = subreddit.submit(title, selftext=content)
-            response["data"] = {
-                "id": new_post.id,
-                "message": "Thread posted successfully",
-            }
-        except prawcore.exceptions.RequestException as e:
-            if "RATELIMIT" in str(e):
-                match = re.search(r"(\\d+) minutes?", str(e))
-                if match:
-                    minutes = int(match.group(1))
-                    self.rate_limit_reset_time = time.time() + minutes * 60
-                response["status"] = "error"
-                response["message"] = "Rate limit exceeded"
-                response["remaining_time"] = minutes * 60
-                response["rate_limit_active"] = True
-            else:
-                response["status"] = "error"
-                response["message"] = "An error occurred"
 
         return json.dumps(response)
 
@@ -208,39 +197,6 @@ class AutoGPTReddit:
         except Exception as e:
             response["status"] = "error"
             response["message"] = str(e)
-        return json.dumps(response)
-
-    def fetch_trending_posts(self, args):
-        response = {'status': 'success'}
-        try:
-            subreddit_name = args.get("subreddit", "all")
-            limit = int(args.get("limit", 10))
-            sort_by = args.get("sort_by", "hot")
-            time_filter = args.get("time_filter", "day")
-            subreddit = self.reddit.subreddit(subreddit_name)
-
-            if sort_by == "hot":
-                posts = subreddit.hot(limit=limit)
-            elif sort_by == "top":
-                posts = subreddit.top(limit=limit, time_filter=time_filter)
-
-            post_data = []
-            for post in posts:
-                if post.selftext or post.url:  # Check if it's a text or link post
-                    truncated_content = post.selftext[:100] + '...' if len(post.selftext) > 100 else post.selftext  # Truncate content to 100 characters
-                    post_data.append({
-                        "id": post.id,
-                        "title": post.title,
-                        "truncated_content": truncated_content,  # Using truncated content
-                        "score": post.score,
-                        "comments_count": post.num_comments,
-                    })
-
-            response['data'] = post_data
-        except Exception as e:
-            response['status'] = 'error'
-            response['message'] = str(e)
-
         return json.dumps(response)
 
     def fetch_user_profile(self, args):

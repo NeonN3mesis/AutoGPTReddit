@@ -249,11 +249,12 @@ class RedditPlugin(AutoGPTPluginTemplate):
             # New core commands
             prompt.add_command(
                 "fetch_posts",
-                "Fetch posts from a subreddit along with IDs, truncated text, and other metadata",
+                "Fetch posts from a subreddit along with IDs, truncated text, and other metadata. Can also fetch trending posts.",
                 {
                     "subreddit": 'Name of the subreddit (default is "all")',
                     "limit": "Number of posts to fetch (default is 10)",
                     "sort_by": 'Sorting criteria ("hot", "new", "top"; default is "hot")',
+                    "time_filter": 'Time filter for trending posts ("day", "week", "month", "year", "all"; default is "day")',
                 },
                 lambda **kwargs: reddit_instance.fetch_posts(kwargs),
             )
@@ -309,18 +310,6 @@ class RedditPlugin(AutoGPTPluginTemplate):
                     "content": "Content of the response",
                 },
                 lambda **kwargs: reddit_instance.respond_to_message(kwargs),
-            )
-
-            prompt.add_command(
-                "fetch_trending_posts",
-                "Fetch trending posts",
-                {
-                    "subreddit": 'Name of the subreddit (default is "all")',
-                    "limit": "Number of posts to fetch (default is 10)",
-                    "sort_by": 'Sorting criteria ("hot", "top"; default is "hot")',
-                    "time_filter": 'Time filter for trending posts ("day", "week", "month", "year", "all"; default is "day")',
-                },
-                lambda **kwargs: reddit_instance.fetch_trending_posts(kwargs),
             )
             prompt.add_command(
                 "subscribe_subreddit",
