@@ -46,15 +46,15 @@ class AutoGPTReddit:
             output = []
             for post in posts:
                 if post.selftext or post.url:  # Check if it's a text or link post
-                    truncated_text = (
-                        post.selftext[:100] + "..."
-                        if len(post.selftext) > 100
+                    text = (
+                        post.selftext[:200] + "..."
+                        if len(post.selftext) > 200
                         else post.selftext
                     )  # Truncate text
                     post_info = {
                         "id": post.id,
                         "title": post.title,
-                        "truncated_text": truncated_text,
+                        "text": text,
                         "score": post.score,
                         "comments_count": post.num_comments,
                     }
@@ -62,7 +62,7 @@ class AutoGPTReddit:
 
                     # Check for character count
                     char_count += len(json.dumps(post_info))
-                    if char_count >= 2500:
+                    if char_count >= 2000:
                         break
 
             response["data"] = output
@@ -102,18 +102,15 @@ class AutoGPTReddit:
             for comment in comments:
                 comment_info = {
                     "Comment ID": comment.id,
-                    "Parent ID": comment.parent_id,
-                    "Content": comment.body[:100],  # Truncate content
-                    "Upvotes": comment.ups,
-                    "Downvotes": comment.downs,
-                    "Subreddit": str(comment.subreddit),
+                    "Content": comment.body[:200],  # Truncate content
+                    "score": comment.score,
                     "Author": str(comment.author), 
                 }
                 output.append(comment_info)
 
                 # Check for character count
                 char_count += len(json.dumps(comment_info))
-                if char_count >= 2500:
+                if char_count >= 2000:
                     break
 
             response["data"] = output
@@ -306,9 +303,8 @@ class AutoGPTReddit:
     def get_subscribed_subreddits(self, args=None):
         response = {"status": "success"}
         try:
-            limit = int(args.get("limit", 50)) if args else 50
             subscribed_subreddits = [
-                sub.display_name for sub in self.reddit.user.subreddits(limit=limit)
+                sub.display_name for sub in self.reddit.user.subreddits()
             ]
             response["data"] = {"subscribed_subreddits": subscribed_subreddits}
         except prawcore.exceptions.RequestException as e:

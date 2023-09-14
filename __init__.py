@@ -278,16 +278,6 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 lambda **kwargs: reddit_instance.post_comment(kwargs),
             )
             prompt.add_command(
-                "post_thread",
-                "Post a new thread",
-                {
-                    "subreddit": "Name of the subreddit",
-                    "title": "Title of the post",
-                    "content": "Content of the post",
-                },
-                lambda **kwargs: reddit_instance.post_thread(kwargs),
-            )
-            prompt.add_command(
                 "vote",
                 "Vote on a post or comment",
                 {
@@ -321,7 +311,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
             prompt.add_command(
                 "get_subscribed_subreddits",
                 "Get a list of subscribed subreddits",
-                {"limit": "Number of subreddits to fetch (default is 10)"},
+                {},
                 lambda **kwargs: reddit_instance.get_subscribed_subreddits(kwargs),
             )
             prompt.add_command(
@@ -333,7 +323,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
             prompt.add_command(
                 "get_popular_subreddits",
                 "Fetch a list of popular subreddits",
-                {"limit": "Number of subreddits to fetch (default is 50)"},
+                {},
                 lambda **kwargs: reddit_instance.get_popular_subreddits(kwargs),
             )
             prompt.add_command(
