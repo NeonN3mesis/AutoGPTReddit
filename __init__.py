@@ -54,17 +54,6 @@ class RedditPlugin(AutoGPTPluginTemplate):
             print("Reddit credentials not found in .env file.")
             self.api = None
 
-    def rate_limit_countdown(self):
-        remaining_time_api = (
-            self.rate_limit_reset_time - time.time()
-            if self.rate_limit_reset_time
-            else 0
-        )
-        remaining_time_new_user = (
-            self.api.check_new_user_rate_limit() if self.api else 0
-        )  # This should now work
-        return max(remaining_time_api, remaining_time_new_user)
-
     def can_handle_on_response(self) -> bool:
         """This method is called to check that the plugin can
         handle the on_response method.
@@ -249,11 +238,11 @@ class RedditPlugin(AutoGPTPluginTemplate):
             # New core commands
             prompt.add_command(
                 "fetch_posts",
-                "Fetch posts from a subreddit along with IDs, truncated text, and other metadata. Can also fetch trending posts.",
+                "Fetch text and link posts from a subreddit along with IDs, truncated text, and other metadata. Can also fetch trending posts.",
                 {
                     "subreddit": 'Name of the subreddit (default is "all")',
-                    "limit": "Number of posts to fetch (default is 10)",
                     "sort_by": 'Sorting criteria ("hot", "new", "top"; default is "hot")',
+                    "limit": "Number of posts to fetch (default is 10)",
                     "time_filter": 'Time filter for trending posts ("day", "week", "month", "year", "all"; default is "day")',
                 },
                 lambda **kwargs: reddit_instance.fetch_posts(kwargs),
@@ -269,15 +258,6 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 lambda **kwargs: reddit_instance.fetch_comments(kwargs),
             )
             prompt.add_command(
-                "post_comment",
-                "Post a comment. (It's a good idea to make sure you haven't already responded to a comment first.)",
-                {
-                    "parent_id": "ID of the parent post or comment",
-                    "content": "Content of the comment",
-                },
-                lambda **kwargs: reddit_instance.post_comment(kwargs),
-            )
-            prompt.add_command(
                 "vote",
                 "Vote on a post or comment",
                 {
@@ -288,13 +268,22 @@ class RedditPlugin(AutoGPTPluginTemplate):
             )
             prompt.add_command(
                 "fetch_notifications",
-                "Fetch unread notifications. (Only respond to any single notification one time.)",
+                "Fetch unread notifications.",
                 {"limit": "Number of notifications to fetch (default is 10)"},
                 lambda **kwargs: reddit_instance.fetch_notifications(kwargs),
             )
             prompt.add_command(
-                "respond_to_message",
-                "Respond to a message. (Only respond to any single message one time.",
+                "post_comment",
+                "Post a comment. (It's a good idea to make sure you haven't already responded to a comment first.)",
+                {
+                    "parent_id": "ID of the parent post or comment",
+                    "content": "Content of the comment",
+                },
+                lambda **kwargs: reddit_instance.post_comment(kwargs),
+            )
+            prompt.add_command(
+                "message",
+                "Send a message response. (Cannot be used to reply to comments.)",
                 {
                     "message_id": "ID of the message",
                     "content": "Content of the response",
@@ -331,6 +320,29 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 "Read a specific notification",
                 {"message_id": "ID of the message to read"},
                 lambda **kwargs: reddit_instance.read_notification(kwargs),
+            )
+            prompt.add_command(
+                "fetch_user_profile",
+                "Fetches relevant information from a user's profile",
+                {
+                    "username": "The username of the Reddit user whose profile you want to fetch",
+                },
+                lambda **kwargs: reddit_instance.fetch_user_profile(kwargs),
+            )
+            scenex_api_key = os.environ.get("SCENEX_API_KEY")
+
+        if scenex_api_key:
+            prompt.add_command(
+                "fetch_and_describe_image_post",
+                "Fetch an image post and describe it using SceneXplain",
+                {
+                    "post_id": "ID of the Reddit post to fetch and describe",
+                },
+                lambda **kwargs: self.fetch_and_describe_image_post(kwargs),
+            )
+        else:
+            print(
+                "Warning: SceneXplain API key not set. fetch_and_describe_image_post command is disabled."
             )
 
         return prompt

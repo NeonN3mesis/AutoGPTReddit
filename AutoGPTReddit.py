@@ -1,13 +1,23 @@
+import http.client
 import json
 import re
 import time
 
 import praw
 import prawcore
+import praw.exceptions
+
 
 
 class AutoGPTReddit:
-    # Initializes the Reddit API client using PRAW.
+    SUCCESS = "success"
+    ERROR = "error"
+
+    
+    def set_error_response(self, response, message):
+        response["status"] = AutoGPTReddit.ERROR
+        response["message"] = message
+
     def __init__(
         self,
         reddit_app_id,
@@ -23,7 +33,7 @@ class AutoGPTReddit:
             username=reddit_username,
             password=reddit_password,
         )
-
+    
     # Fetches posts from a specified subreddit.
     # args: Dictionary containing 'subreddit', 'limit', and 'sort_by' keys.
     def fetch_posts(self, args) -> str:
@@ -42,6 +52,12 @@ class AutoGPTReddit:
                 posts = subreddit.hot(limit=limit)
             elif sort_by == "top":
                 posts = subreddit.top(limit=limit, time_filter=time_filter)
+            elif sort_by == "new":
+                posts = subreddit.new(limit=limit)  # Fetch newest posts
+            else:
+                posts = subreddit.hot(
+                    limit=limit
+                )  # Default to hot if sort_by is not recognized
 
             output = []
             for post in posts:
@@ -62,7 +78,7 @@ class AutoGPTReddit:
 
                     # Check for character count
                     char_count += len(json.dumps(post_info))
-                    if char_count >= 2000:
+                    if char_count >= 2500:
                         break
 
             response["data"] = output
@@ -71,7 +87,6 @@ class AutoGPTReddit:
             response["message"] = str(e)
 
         return json.dumps(response)
-
 
     # Fetches comments from a specified post.
     # args: Dictionary containing 'post_id', 'limit', and 'sort_by' keys.
@@ -93,7 +108,7 @@ class AutoGPTReddit:
                 submission.comment_sort = "new"
             elif sort == "top":
                 submission.comment_sort = "top"
-            
+
             # Replace 'more' comments and fetch the top comments
             submission.comments.replace_more(limit=0)
             comments = submission.comments.list()[:limit]
@@ -104,13 +119,13 @@ class AutoGPTReddit:
                     "Comment ID": comment.id,
                     "Content": comment.body[:200],  # Truncate content
                     "score": comment.score,
-                    "Author": str(comment.author), 
+                    "Author": str(comment.author),
                 }
                 output.append(comment_info)
 
                 # Check for character count
                 char_count += len(json.dumps(comment_info))
-                if char_count >= 2000:
+                if char_count >= 2500:
                     break
 
             response["data"] = output
@@ -121,24 +136,46 @@ class AutoGPTReddit:
         return json.dumps(response)
 
     def post_comment(self, args):
-        response = {"status": "success"}
+        response = {"status": AutoGPTReddit.SUCCESS}
+        
+        # Validate arguments
+        if not all(k in args for k in ("parent_id", "content")):
+            self.set_error_response(response, "Missing required arguments (parent_id, content)")
+            return json.dumps(response)
+        
         try:
             parent_id = args["parent_id"]
             content = args["content"]
+            
+            # Determine whether the parent ID corresponds to a comment or a submission
             parent_item = (
                 self.reddit.comment(id=parent_id)
                 if parent_id.startswith("t1_")
                 else self.reddit.submission(id=parent_id)
             )
+            
+            # Post the comment
             comment = parent_item.reply(content)
+            
             response["data"] = {
                 "id": comment.id,
                 "message": "Comment posted successfully",
             }
+
+        except praw.exceptions.APIException as e:
+            self.set_error_response(response, f"API exception: {str(e)}")
+            print(f"API Exception Details: {e}")
+
+        except praw.exceptions.ClientException as e:
+            self.set_error_response(response, f"Client exception: {str(e)}")
+            print(f"Client Exception Details: {e}")
+
         except Exception as e:
-            response["status"] = "error"
-            response["message"] = str(e)
+            self.set_error_response(response, f"Unknown exception: {str(e)}")
+            print(f"General Exception Details: {e}")
+
         return json.dumps(response)
+
 
     def vote(self, args):
         response = {"status": "success"}
@@ -168,9 +205,12 @@ class AutoGPTReddit:
             notification_data = []
             for message in unread_messages:
                 truncated_content = message.body[:200]
+                message_type = type(
+                    message
+                ).__name__  # Get the class name to identify the type
                 notification_data.append(
                     {
-                        "id": message.id,
+                        f"{message_type} id": message.id,
                         "from": message.author.name if message.author else "Unknown",
                         "truncated_content": truncated_content + "..."
                         if len(message.body) > 200
@@ -183,7 +223,7 @@ class AutoGPTReddit:
             response["message"] = str(e)
         return json.dumps(response)
 
-    def respond_to_message(self, args):
+    def message(self, args):
         response = {"status": "success"}
         try:
             message_id = args["message_id"]
@@ -196,19 +236,57 @@ class AutoGPTReddit:
             response["message"] = str(e)
         return json.dumps(response)
 
-    def fetch_user_profile(self, args):
+    def fetch_user_profile(self, args) -> str:
         response = {"status": "success"}
+        char_count = 0
         try:
-            username = args["username"]
+            username = args.get("username")
             user = self.reddit.redditor(username)
-            response["data"] = {
+
+            # User basic information
+            user_data = {
                 "id": user.id,
                 "name": user.name,
                 "karma": user.link_karma + user.comment_karma,
             }
+
+            # Fetch user's posts (submissions)
+            posts = []
+            for post in user.submissions.new(limit=10):  # Change limit as needed
+                post_info = {
+                    "id": post.id,
+                    "title": post.title,
+                    "score": post.score,
+                }
+                posts.append(post_info)
+                char_count += len(json.dumps(post_info))
+                if char_count >= 2500:
+                    break
+
+            # Fetch user's comments
+            comments = []
+            if char_count < 2500:
+                for comment in user.comments.new(limit=10):  # Change limit as needed
+                    comment_info = {
+                        "id": comment.id,
+                        "body": comment.body,
+                        "score": comment.score,
+                    }
+                    comments.append(comment_info)
+                    char_count += len(json.dumps(comment_info))
+                    if char_count >= 2500:
+                        break
+
+            # Combine user info, posts, and comments
+            user_data["posts"] = posts
+            user_data["comments"] = comments
+
+            response["data"] = user_data
+
         except Exception as e:
             response["status"] = "error"
             response["message"] = str(e)
+
         return json.dumps(response)
 
     def fetch_subreddit_info(self, args):
@@ -359,4 +437,52 @@ class AutoGPTReddit:
         except Exception as e:
             response["status"] = "error"
             response["message"] = f"An error occurred: {e}"
+        return json.dumps(response)
+
+    def fetch_and_describe_image_post(self, args):
+        response = {"status": "success"}
+        try:
+            post_id = args.get("post_id")
+            post = self.reddit.submission(id=post_id)
+
+            if not post.url.lower().endswith((".png", ".jpg", ".jpeg")):
+                response["status"] = "error"
+                response["message"] = "Not an image post."
+                return json.dumps(response)
+
+            # SceneXplain API request
+            YOUR_GENERATED_SECRET = (
+                "SCENEX_API_KEY"  # Should be read from env variables
+            )
+            data = {
+                "data": [
+                    {"image": post.url, "features": []},
+                ]
+            }
+
+            headers = {
+                "x-api-key": f"token {YOUR_GENERATED_SECRET}",
+                "content-type": "application/json",
+            }
+
+            connection = http.client.HTTPSConnection("api.scenex.jina.ai")
+            connection.request("POST", "/v1/describe", json.dumps(data), headers)
+            api_response = connection.getresponse()
+            api_data = json.loads(api_response.read().decode("utf-8"))
+
+            # Extract description
+            description = api_data.get("result", [{}])[0].get(
+                "text", "No description available."
+            )
+
+            # Prepare response
+            response["data"] = {
+                "id": post.id,
+                "title": post.title,
+                "description": description,
+            }
+        except Exception as e:
+            response["status"] = "error"
+            response["message"] = str(e)
+
         return json.dumps(response)
