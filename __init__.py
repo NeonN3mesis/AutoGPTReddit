@@ -21,7 +21,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
     def __init__(self):
         super().__init__()
         self._name = "autogpt-reddit"
-        self._version = "1.0.0"
+        self._version = "1.1.0"
         self._description = "Reddit API integrations using PRAW."
         self.client_id = os.getenv("REDDIT_CLIENT_ID")
         self.client_secret = os.getenv("REDDIT_CLIENT_SECRET")
@@ -235,10 +235,9 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 self.password,
             )
 
-            # New core commands
             prompt.add_command(
                 "fetch_posts",
-                "Fetch text and link posts from a subreddit along with IDs, truncated text, and other metadata. Can also fetch trending posts.",
+                "Fetch only text and link posts from a subreddit along with IDs, truncated text, and other metadata. Can also fetch trending posts.",
                 {
                     "subreddit": 'Name of the subreddit (default is "all")',
                     "sort_by": 'Sorting criteria ("hot", "new", "top"; default is "hot")',
@@ -296,7 +295,6 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 {"subreddit": "Name of the subreddit"},
                 lambda **kwargs: reddit_instance.subscribe_subreddit(kwargs),
             )
-
             prompt.add_command(
                 "get_subscribed_subreddits",
                 "Get a list of subscribed subreddits",
@@ -317,7 +315,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
             )
             prompt.add_command(
                 "read_notification",
-                "Read a specific notification",
+                "Read a specific single full notification",
                 {"message_id": "ID of the message to read"},
                 lambda **kwargs: reddit_instance.read_notification(kwargs),
             )
@@ -329,12 +327,38 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 },
                 lambda **kwargs: reddit_instance.fetch_user_profile(kwargs),
             )
+            prompt.add_command(
+                "search_posts",
+                "Search for posts based on a query",
+                {
+                    "query": "Search query",
+                    "limit": "Number of posts to fetch (default is 10)",
+                },
+                lambda **kwargs: reddit_instance.search_posts(kwargs),
+            )
+            prompt.add_command(
+                "search_comments",
+                "Search for comments based on a query",
+                {
+                    "query": "Search query",
+                    "limit": "Number of comments to fetch (default is 10)",
+                },
+                lambda **kwargs: reddit_instance.search_comments(kwargs),
+            )
+            prompt.add_command(
+                "delete_item",
+                "Delete a post or comment",
+                {
+                    "id": "ID of the post or comment to delete",
+                },
+                lambda **kwargs: reddit_instance.delete_item(kwargs),
+            )
             scenex_api_key = os.environ.get("SCENEX_API_KEY")
 
         if scenex_api_key:
             prompt.add_command(
                 "fetch_and_describe_image_post",
-                "Fetch an image post and describe it using SceneXplain",
+                "Fetch an image post and describe the image using SceneXplain",
                 {
                     "post_id": "ID of the Reddit post to fetch and describe",
                 },

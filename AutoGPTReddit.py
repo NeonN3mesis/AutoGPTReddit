@@ -12,7 +12,7 @@ import praw.exceptions
 class AutoGPTReddit:
     SUCCESS = "success"
     ERROR = "error"
-
+    TRUNCATION_LIMIT = 200  # Constant for truncation limit
     
     def set_error_response(self, response, message):
         response["status"] = AutoGPTReddit.ERROR
@@ -34,11 +34,9 @@ class AutoGPTReddit:
             password=reddit_password,
         )
     
-    # Fetches posts from a specified subreddit.
-    # args: Dictionary containing 'subreddit', 'limit', and 'sort_by' keys.
     def fetch_posts(self, args) -> str:
         response = {"status": "success"}
-        char_count = 0  # Initialize character count for truncation
+        char_count = 0
         try:
             subreddit_name = args.get("subreddit", "all")
             sort_by = args.get("sort_by", "hot")
@@ -46,27 +44,19 @@ class AutoGPTReddit:
             time_filter = args.get("time_filter", "day")
 
             subreddit = self.reddit.subreddit(subreddit_name)
-
-            # Sort posts
             if sort_by == "hot":
                 posts = subreddit.hot(limit=limit)
             elif sort_by == "top":
                 posts = subreddit.top(limit=limit, time_filter=time_filter)
             elif sort_by == "new":
-                posts = subreddit.new(limit=limit)  # Fetch newest posts
+                posts = subreddit.new(limit=limit)
             else:
-                posts = subreddit.hot(
-                    limit=limit
-                )  # Default to hot if sort_by is not recognized
+                posts = subreddit.hot(limit=limit)
 
             output = []
             for post in posts:
-                if post.selftext or post.url:  # Check if it's a text or link post
-                    text = (
-                        post.selftext[:200] + "..."
-                        if len(post.selftext) > 200
-                        else post.selftext
-                    )  # Truncate text
+                if post.is_self or (not post.is_self and post.url):
+                    text = post.selftext[:200] + "..." if len(post.selftext) > 200 else post.selftext
                     post_info = {
                         "id": post.id,
                         "title": post.title,
@@ -75,8 +65,6 @@ class AutoGPTReddit:
                         "comments_count": post.num_comments,
                     }
                     output.append(post_info)
-
-                    # Check for character count
                     char_count += len(json.dumps(post_info))
                     if char_count >= 2500:
                         break
@@ -88,20 +76,15 @@ class AutoGPTReddit:
 
         return json.dumps(response)
 
-    # Fetches comments from a specified post.
-    # args: Dictionary containing 'post_id', 'limit', and 'sort_by' keys.
     def fetch_comments(self, args) -> str:
         response = {"status": "success"}
-        char_count = 0  # Initialize character count for truncation
+        char_count = 0
         try:
             post_id = args.get("post_id")
             sort = args.get("sort_by", "best")
             limit = args.get("limit", 10)
 
-            # Initialize post
             submission = self.reddit.submission(id=post_id)
-
-            # Sort comments
             if sort == "best":
                 submission.comment_sort = "best"
             elif sort == "new":
@@ -109,7 +92,6 @@ class AutoGPTReddit:
             elif sort == "top":
                 submission.comment_sort = "top"
 
-            # Replace 'more' comments and fetch the top comments
             submission.comments.replace_more(limit=0)
             comments = submission.comments.list()[:limit]
 
@@ -117,13 +99,11 @@ class AutoGPTReddit:
             for comment in comments:
                 comment_info = {
                     "Comment ID": comment.id,
-                    "Content": comment.body[:200],  # Truncate content
+                    "Content": comment.body[:200],
                     "score": comment.score,
                     "Author": str(comment.author),
                 }
                 output.append(comment_info)
-
-                # Check for character count
                 char_count += len(json.dumps(comment_info))
                 if char_count >= 2500:
                     break
@@ -197,31 +177,35 @@ class AutoGPTReddit:
             response["message"] = str(e)
         return json.dumps(response)
 
+    def _create_notification_data(self, message):
+        content = message.body[:AutoGPTReddit.TRUNCATION_LIMIT]
+        should_truncate = len(message.body) > AutoGPTReddit.TRUNCATION_LIMIT
+        item_type = "comment" if message.fullname.startswith("t1_") else "message"
+
+        return {
+            "id": message.fullname,
+            "from": message.author.name if message.author else "Unknown",
+            "content": content if not should_truncate else f"{content}...",
+            "type": item_type,
+        }
+
+
     def fetch_notifications(self, args):
-        response = {"status": "success"}
+        response = {"status": AutoGPTReddit.SUCCESS}
         try:
             limit = min(args.get("limit", 10), 5)
             unread_messages = list(self.reddit.inbox.unread(limit=limit))
-            notification_data = []
-            for message in unread_messages:
-                truncated_content = message.body[:200]
-                message_type = type(
-                    message
-                ).__name__  # Get the class name to identify the type
-                notification_data.append(
-                    {
-                        f"{message_type} id": message.id,
-                        "from": message.author.name if message.author else "Unknown",
-                        "truncated_content": truncated_content + "..."
-                        if len(message.body) > 200
-                        else truncated_content,
-                    }
-                )
+            notification_data = [self._create_notification_data(message) for message in unread_messages]
             response["data"] = notification_data
+        except praw.exceptions.APIException as e:
+            self.set_error_response(response, f"API exception: {str(e)}")
+        except praw.exceptions.ClientException as e:
+            self.set_error_response(response, f"Client exception: {str(e)}")
         except Exception as e:
-            response["status"] = "error"
-            response["message"] = str(e)
+            self.set_error_response(response, f"Unknown exception: {str(e)}")
+                    
         return json.dumps(response)
+
 
     def message(self, args):
         response = {"status": "success"}
@@ -428,11 +412,24 @@ class AutoGPTReddit:
         response = {"status": "success"}
         try:
             message_id = args["message_id"]
-            message = self.reddit.message(id=message_id)
+            
+            # Determine whether the ID corresponds to a comment or a message
+            if message_id.startswith("t1_"):
+                message = self.reddit.comment(id=message_id[3:])
+                message_type = "comment"
+            elif message_id.startswith("t4_"):
+                message = self.reddit.inbox.message(message_id[3:])
+                message_type = "message"
+            else:
+                response["status"] = "error"
+                response["message"] = "Unknown message type"
+                return json.dumps(response)
+            
             response["data"] = {
                 "id": message.id,
                 "content": message.body,
                 "from": message.author.name if message.author else "Unknown",
+                "type": message_type
             }
         except Exception as e:
             response["status"] = "error"
