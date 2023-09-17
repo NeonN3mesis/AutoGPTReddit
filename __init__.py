@@ -287,7 +287,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
                     "message_id": "ID of the message",
                     "content": "Content of the response",
                 },
-                lambda **kwargs: reddit_instance.respond_to_message(kwargs),
+                lambda **kwargs: reddit_instance.message(kwargs),
             )
             prompt.add_command(
                 "subscribe_subreddit",
@@ -353,6 +353,16 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 },
                 lambda **kwargs: reddit_instance.delete_item(kwargs),
             )
+            prompt.add_command(
+                "fetch_comment_tree",
+                "Fetch a comment and all its children comments.",
+                {
+                    "comment_id": "ID of the root comment",
+                    "limit": "Number of child comments to fetch (default is all)"
+                },
+                lambda **kwargs: reddit_instance.fetch_comment_tree(kwargs),
+            )
+
             scenex_api_key = os.environ.get("SCENEX_API_KEY")
 
         if scenex_api_key:
@@ -362,7 +372,8 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 {
                     "post_id": "ID of the Reddit post to fetch and describe",
                 },
-                lambda **kwargs: self.fetch_and_describe_image_post(kwargs),
+                lambda **kwargs: reddit_instance.fetch_and_describe_image_post(kwargs),
+
             )
         else:
             print(

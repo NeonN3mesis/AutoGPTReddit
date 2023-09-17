@@ -6,7 +6,7 @@ import time
 import praw
 import prawcore
 import praw.exceptions
-
+from praw.models import MoreComments
 
 
 class AutoGPTReddit:
@@ -255,6 +255,7 @@ class AutoGPTReddit:
                         "id": comment.id,
                         "body": comment.body,
                         "score": comment.score,
+                        "parent_id": comment.parent_id,  # Fetching parent ID
                     }
                     comments.append(comment_info)
                     char_count += len(json.dumps(comment_info))
@@ -272,6 +273,7 @@ class AutoGPTReddit:
             response["message"] = str(e)
 
         return json.dumps(response)
+
 
     def fetch_subreddit_info(self, args):
         response = {"status": "success"}
@@ -478,6 +480,53 @@ class AutoGPTReddit:
                 "title": post.title,
                 "description": description,
             }
+        except Exception as e:
+            response["status"] = "error"
+            response["message"] = str(e)
+
+        return json.dumps(response)
+
+    def fetch_comment_tree(self, args) -> str:
+        response = {"status": "success"}
+        char_count = 0  # Initialize character count for truncation
+        try:
+            comment_id = args.get("comment_id")
+            limit = args.get("limit", 10)  # Limit for child comments
+
+            # Initialize comment
+            comment = self.reddit.comment(id=comment_id)
+
+            # Fetch the comment details
+            comment_info = {
+                "id": comment.id,
+                "body": comment.body,
+                "score": comment.score,
+                "parent_id": comment.parent_id,
+            }
+            char_count += len(json.dumps(comment_info))
+
+            # Fetch replies (child comments)
+            comment.replies.replace_more(limit=0)  # Replace 'more' comments
+            replies = []
+            for reply in comment.replies.list()[:limit]:
+                if isinstance(reply, MoreComments):
+                    continue
+                reply_info = {
+                    "id": reply.id,
+                    "body": reply.body,
+                    "score": reply.score,
+                    "parent_id": reply.parent_id,
+                }
+                replies.append(reply_info)
+                char_count += len(json.dumps(reply_info))
+                if char_count >= 2500:
+                    break
+
+            # Combine comment info and replies
+            comment_info["replies"] = replies
+
+            response["data"] = comment_info
+
         except Exception as e:
             response["status"] = "error"
             response["message"] = str(e)
