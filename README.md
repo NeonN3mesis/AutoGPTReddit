@@ -75,3 +75,49 @@ Reddit API integrations using PRAW.
 
 These instructions are specifically tailored to guide you through the process of filling out the given fields for the Reddit API setup. Make sure to keep your credentials secure and follow Reddit's guidelines when choosing a user agent string.
 
+
+
+# AutoGPTReddit Plugin Legal Disclaimer
+
+---
+
+## :warning: WARNING: PLEASE READ THIS DISCLAIMER CAREFULLY BEFORE USING THE AUTOGPTREDDIT PLUGIN WITH AUTO-GPT :warning:
+
+By using the AutoGPTReddit Plugin ("Plugin") with Auto-GPT ("Agent"), you acknowledge and agree to the following terms and conditions:
+
+---
+
+### 1. Risk of Harm
+
+You understand that using the Plugin with your Agent to interact with Reddit or any other third-party service may cause unintended actions or consequences, including but not limited to data loss, privacy violations, and violations of Reddit's terms of service.
+
+---
+
+### 2. No Warranty
+
+The Plugin is provided "AS IS" without any warranties of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement.
+
+---
+
+### 3. No Liability
+
+Under no circumstances shall the developers, contributors, or anyone involved in the creation or distribution of the Plugin be liable for any damages (including, without limitation, direct, indirect, incidental, special, consequential, or exemplary damages) arising out of the use or inability to use the Plugin.
+
+---
+
+### 4. Indemnification
+
+You agree to indemnify and hold harmless the developers, contributors, and anyone involved in the creation or distribution of the Plugin from and against any and all claims, liabilities, damages, and expenses (including legal fees) arising out of your use of the Plugin.
+
+---
+
+### 5. Compliance
+
+It is your sole responsibility to ensure that your use of the Plugin complies with all applicable laws, including but not limited to federal, state, and local laws, as well as Reddit's terms of service.
+
+---
+
+By using the Plugin, you acknowledge that you have read, understood, and agree to be bound by these terms.
+
+
+
