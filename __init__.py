@@ -182,29 +182,26 @@ class RedditPlugin(AutoGPTPluginTemplate):
 
     def post_command(self, command_name: str, response: str) -> str:
         current_time = time.time()
-        rate_limited = False
+        rate_limited_message = "You are not currently rate limited"
 
         if AutoGPTReddit.rate_limit_reset_time and current_time < AutoGPTReddit.rate_limit_reset_time:
-            rate_limited = True
+            rate_limited_message = "You are rate limited and cannot post or comment"
 
         if AutoGPTReddit.rate_limit_reset_time and current_time >= AutoGPTReddit.rate_limit_reset_time:
             AutoGPTReddit.rate_limit_reset_time = None
-
 
         if response:
             try:
                 # Assuming 'response' should be a dictionary.
                 response_dict = json.loads(response)
-                response_dict["Rate limited"] = rate_limited  # Setting the rate_limited flag here
-                return json.dumps(response_dict)
+                return json.dumps([rate_limited_message, response_dict])
             except json.JSONDecodeError:
                 # Handle JSON decode error
-                return json.dumps({"error": "Invalid JSON response", "rate_limited": rate_limited})
+                return json.dumps([rate_limited_message, {"error": "Invalid JSON response"}])
         else:
-            return json.dumps({"error": "Empty response", "rate_limited": rate_limited})
+            return json.dumps([rate_limited_message, {"error": "Empty response"}])
 
 
- 
     def can_handle_chat_completion(
         self,
         messages: list[Dict[Any, Any]],
