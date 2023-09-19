@@ -2,6 +2,7 @@ import http.client
 import json
 import re
 import time
+import os
 
 import praw
 import prawcore
@@ -13,10 +14,18 @@ class AutoGPTReddit:
     SUCCESS = "success"
     ERROR = "error"
     TRUNCATION_LIMIT = 200  # Constant for truncation limit
-    
+    rate_limit_reset_time = None
+
+    @classmethod
+    def check_rate_limit(cls):
+        current_time = time.time()
+        if current_time < cls.rate_limit_reset_time:
+            return False, cls.rate_limit_reset_time - current_time
+        return True, 0
+
     def set_error_response(self, response, message):
         response["status"] = AutoGPTReddit.ERROR
-        response["message"] = message
+        response["error_message"] = message
 
     def __init__(
         self,
@@ -116,27 +125,29 @@ class AutoGPTReddit:
         return json.dumps(response)
 
     def post_comment(self, args):
-        response = {"status": AutoGPTReddit.SUCCESS}
-        
-        # Validate arguments
-        if not all(k in args for k in ("parent_id", "content")):
-            self.set_error_response(response, "Missing required arguments (parent_id, content)")
-            return json.dumps(response)
-        
+        response = {"status": "success"}
+
         try:
+            # Validate arguments
+            if not all(k in args for k in ("parent_id", "content")):
+                self.set_error_response(
+                    response, "Missing required arguments (parent_id, content)"
+                )
+                return json.dumps(response)
+
             parent_id = args["parent_id"]
             content = args["content"]
-            
-            # Determine whether the parent ID corresponds to a comment or a submission
+
+            # Determine parent item
             parent_item = (
                 self.reddit.comment(id=parent_id)
                 if parent_id.startswith("t1_")
                 else self.reddit.submission(id=parent_id)
             )
-            
+
             # Post the comment
             comment = parent_item.reply(content)
-            
+
             response["data"] = {
                 "id": comment.id,
                 "message": "Comment posted successfully",
@@ -144,15 +155,22 @@ class AutoGPTReddit:
 
         except praw.exceptions.APIException as e:
             self.set_error_response(response, f"API exception: {str(e)}")
-            print(f"API Exception Details: {e}")
+
+            # If it's a rate-limit exception, set the rate_limit_reset_time
+            if "RATELIMIT" in str(e):
+                match = re.search(r"Take a break for (\d+) minutes", str(e))
+                if match:
+                    minutes = int(match.group(1))
+                    AutoGPTReddit.rate_limit_reset_time = time.time() + (minutes * 60)
+                else:
+                    # Log or handle the case where the expected text was not found in the error message
+                    print("Unexpected rate limit message format.")
 
         except praw.exceptions.ClientException as e:
             self.set_error_response(response, f"Client exception: {str(e)}")
-            print(f"Client Exception Details: {e}")
 
         except Exception as e:
             self.set_error_response(response, f"Unknown exception: {str(e)}")
-            print(f"General Exception Details: {e}")
 
         return json.dumps(response)
 
@@ -336,21 +354,6 @@ class AutoGPTReddit:
             response["message"] = str(e)
         return json.dumps(response)
 
-    def delete_item(self, args):
-        response = {"status": "success"}
-        try:
-            item_id = args["id"]
-            item = (
-                self.reddit.comment(id=item_id)
-                if item_id.startswith("t1_")
-                else self.reddit.submission(id=item_id)
-            )
-            item.delete()
-            response["data"] = {"id": item_id, "action": "deleted"}
-        except Exception as e:
-            response["status"] = "error"
-            response["message"] = str(e)
-        return json.dumps(response)
 
     def subscribe_subreddit(self, args):
         response = {"status": "success"}
@@ -450,9 +453,8 @@ class AutoGPTReddit:
                 return json.dumps(response)
 
             # SceneXplain API request
-            YOUR_GENERATED_SECRET = (
-                "SCENEX_API_KEY"  # Should be read from env variables
-            )
+            YOUR_GENERATED_SECRET = os.environ.get("SCENEX_API_KEY", "Default_API_Key")
+            
             data = {
                 "data": [
                     {"image": post.url, "features": []},

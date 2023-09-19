@@ -1,5 +1,6 @@
 """Reddit API integrations using PRAW."""
 import os
+import json
 import random
 import time
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, TypeVar
@@ -19,7 +20,7 @@ class Message(TypedDict):
 
 class RedditPlugin(AutoGPTPluginTemplate):
     def __init__(self):
-        super().__init__()
+        super().__init__()    
         self._name = "autogpt-reddit"
         self._version = "1.1.0"
         self._description = "Reddit API integrations using PRAW."
@@ -31,7 +32,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
         self.post_id = []
         self.posts = []
         self.api = None
-        self.rate_limit_reset_time = None
+        
 
         if (
             self.client_id
@@ -53,7 +54,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
         else:
             print("Reddit credentials not found in .env file.")
             self.api = None
-
+    rate_limit_reset_time = None
     def can_handle_on_response(self) -> bool:
         """This method is called to check that the plugin can
         handle the on_response method.
@@ -177,11 +178,33 @@ class RedditPlugin(AutoGPTPluginTemplate):
         handle the post_command method.
         Returns:
             bool: True if the plugin can handle the post_command method."""
-        return False
+        return True
 
     def post_command(self, command_name: str, response: str) -> str:
-        pass
+        current_time = time.time()
+        rate_limited = False
 
+        if AutoGPTReddit.rate_limit_reset_time and current_time < AutoGPTReddit.rate_limit_reset_time:
+            rate_limited = True
+
+        if AutoGPTReddit.rate_limit_reset_time and current_time >= AutoGPTReddit.rate_limit_reset_time:
+            AutoGPTReddit.rate_limit_reset_time = None
+
+
+        if response:
+            try:
+                # Assuming 'response' should be a dictionary.
+                response_dict = json.loads(response)
+                response_dict["rate_limited"] = rate_limited  # Setting the rate_limited flag here
+                return json.dumps(response_dict)
+            except json.JSONDecodeError:
+                # Handle JSON decode error
+                return json.dumps({"error": "Invalid JSON response", "rate_limited": rate_limited})
+        else:
+            return json.dumps({"error": "Empty response", "rate_limited": rate_limited})
+
+
+ 
     def can_handle_chat_completion(
         self,
         messages: list[Dict[Any, Any]],
@@ -344,14 +367,6 @@ class RedditPlugin(AutoGPTPluginTemplate):
                     "limit": "Number of comments to fetch (default is 10)",
                 },
                 lambda **kwargs: reddit_instance.search_comments(kwargs),
-            )
-            prompt.add_command(
-                "delete_item",
-                "Delete a post or comment",
-                {
-                    "id": "ID of the post or comment to delete",
-                },
-                lambda **kwargs: reddit_instance.delete_item(kwargs),
             )
             prompt.add_command(
                 "fetch_comment_tree",

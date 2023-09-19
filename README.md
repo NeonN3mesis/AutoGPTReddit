@@ -17,7 +17,7 @@ Reddit API integrations using PRAW.
 - **fetch_user_profile**: Fetches relevant information from a user's profile.
 - **search_posts**: Search for posts based on a query.
 - **search_comments**: Search for comments based on a query.
-- **delete_item**: Delete a post or comment.
+- **fetch_comment_tree**: Fetch a comment and all its children comments.
 
 ### Requires a Scenex API (Not available without API)
 - **fetch_and_describe_image_post**: Fetch an image post and describe the image using SceneXplain.
