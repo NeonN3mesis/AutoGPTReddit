@@ -195,7 +195,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
             try:
                 # Assuming 'response' should be a dictionary.
                 response_dict = json.loads(response)
-                response_dict["rate_limited"] = rate_limited  # Setting the rate_limited flag here
+                response_dict["Rate limited"] = rate_limited  # Setting the rate_limited flag here
                 return json.dumps(response_dict)
             except json.JSONDecodeError:
                 # Handle JSON decode error
@@ -278,6 +278,15 @@ class RedditPlugin(AutoGPTPluginTemplate):
                     "sort_by": 'Sorting criteria ("best", "top", "new", "controversial", "old", "random", "qa", "live"; default is "best")',
                 },
                 lambda **kwargs: reddit_instance.fetch_comments(kwargs),
+            )
+            prompt.add_command(
+                "fetch_comment_tree",
+                "Fetch a comment and all its children comments.",
+                {
+                    "comment_id": "ID of the root comment",
+                    "limit": "Number of child comments to fetch (default is all)"
+                },
+                lambda **kwargs: reddit_instance.fetch_comment_tree(kwargs),
             )
             prompt.add_command(
                 "vote",
@@ -368,16 +377,6 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 },
                 lambda **kwargs: reddit_instance.search_comments(kwargs),
             )
-            prompt.add_command(
-                "fetch_comment_tree",
-                "Fetch a comment and all its children comments.",
-                {
-                    "comment_id": "ID of the root comment",
-                    "limit": "Number of child comments to fetch (default is all)"
-                },
-                lambda **kwargs: reddit_instance.fetch_comment_tree(kwargs),
-            )
-
             scenex_api_key = os.environ.get("SCENEX_API_KEY")
 
         if scenex_api_key:

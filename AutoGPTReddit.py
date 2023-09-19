@@ -265,15 +265,16 @@ class AutoGPTReddit:
                 if char_count >= 2500:
                     break
 
-            # Fetch user's comments
             comments = []
             if char_count < 2500:
                 for comment in user.comments.new(limit=10):  # Change limit as needed
                     comment_info = {
                         "id": comment.id,
+                        "parent_id": comment.parent_id,  # Fetching parent ID
+                        "post_id": comment.link_id,  # Fetching post ID
                         "body": comment.body,
                         "score": comment.score,
-                        "parent_id": comment.parent_id,  # Fetching parent ID
+                        
                     }
                     comments.append(comment_info)
                     char_count += len(json.dumps(comment_info))
