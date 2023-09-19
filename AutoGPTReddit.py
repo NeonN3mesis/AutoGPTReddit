@@ -124,7 +124,7 @@ class AutoGPTReddit:
 
         return json.dumps(response)
 
-    def post_comment(self, args):
+    def submit_comment(self, args):
         response = {"status": "success"}
 
         try:
@@ -174,6 +174,61 @@ class AutoGPTReddit:
 
         return json.dumps(response)
 
+    def submit_post(self, args):
+        response = {"status": "success"}
+
+        try:
+            # Validate arguments
+            if not all(k in args for k in ("title", "content", "subreddit")):
+                self.set_error_response(
+                    response, "Missing required arguments (title, content, subreddit)"
+                )
+                return json.dumps(response)
+
+            title = args["title"]
+            content = args["content"]
+            subreddit_name = args["subreddit"]
+
+            # Getting subreddit object
+            subreddit = self.reddit.subreddit(subreddit_name)
+
+            # Check if the subreddit requires flair
+            if subreddit.link_flair_position != 'none':
+                # Fetch available flairs
+                available_flairs = list(subreddit.flair.link_templates)
+                if available_flairs:
+                    flair_options = [{"id": flair['id'], "text": flair['text']} for flair in available_flairs]
+                    self.set_error_response(response, "This subreddit requires flair. Please pick one and try again.")
+                    response["available_flairs"] = flair_options
+                    return json.dumps(response)
+
+            # Submitting the post to the specified subreddit
+            submission = subreddit.submit(title, selftext=content)
+
+            response["data"] = {
+                "id": submission.id,
+                "message": "Post submitted successfully",
+            }
+
+        except praw.exceptions.APIException as e:
+            self.set_error_response(response, f"API exception: {str(e)}")
+
+            # Handle rate-limiting
+            if "RATELIMIT" in str(e):
+                match = re.search(r"Take a break for (\d+) minutes", str(e))
+                if match:
+                    minutes = int(match.group(1))
+                    AutoGPTReddit.rate_limit_reset_time = time.time() + (minutes * 60)
+                else:
+                    print("Unexpected rate limit message format.")
+
+        except praw.exceptions.ClientException as e:
+            self.set_error_response(response, f"Client exception: {str(e)}")
+
+        except Exception as e:
+            self.set_error_response(response, f"Unknown exception: {str(e)}")
+
+        return json.dumps(response)
 
     def vote(self, args):
         response = {"status": "success"}

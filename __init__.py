@@ -301,13 +301,13 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 lambda **kwargs: reddit_instance.fetch_notifications(kwargs),
             )
             prompt.add_command(
-                "post_comment",
-                "Post a comment. (It's a good idea to make sure you haven't already responded to a comment first.)",
+                "submit_comment",
+                "Submit a comment. (It's a good idea to make sure you haven't already responded to a comment first.)",
                 {
                     "parent_id": "ID of the parent post or comment",
                     "content": "Content of the comment",
                 },
-                lambda **kwargs: reddit_instance.post_comment(kwargs),
+                lambda **kwargs: reddit_instance.submit_comment(kwargs),
             )
             prompt.add_command(
                 "message",
@@ -384,13 +384,28 @@ class RedditPlugin(AutoGPTPluginTemplate):
                     "post_id": "ID of the Reddit post to fetch and describe",
                 },
                 lambda **kwargs: reddit_instance.fetch_and_describe_image_post(kwargs),
-
+        
             )
         else:
             print(
                 "Warning: SceneXplain API key not set. fetch_and_describe_image_post command is disabled."
             )
+        can_generate_posts = os.environ.get('CAN_GENERATE_POSTS', 'false').lower() == 'true'
 
+        # Conditionally add the submit_post command
+        if can_generate_posts:
+            prompt.add_command(
+                "submit_post",
+                "Submit a Reddit post",
+                {
+                    "title": "Title of the post",
+                    "content": "Content of the post",
+                    "subreddit": "Subreddit to post to",
+                },
+                lambda **kwargs: reddit_instance.submit_post(kwargs)
+            )
+        else:
+            print("Warning: CAN_GENERATE_POSTS is not set to true. submit_post command is disabled.")
         return prompt
 
     def can_handle_text_embedding(self, text: str) -> bool:
