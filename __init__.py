@@ -32,7 +32,8 @@ class RedditPlugin(AutoGPTPluginTemplate):
         self.post_id = []
         self.posts = []
         self.api = None
-        
+        can_generate_posts = os.environ.get('CAN_GENERATE_POSTS', 'false').lower() == 'true'
+        scenex_api_key = os.environ.get("SCENEX_API_KEY")
 
         if (
             self.client_id
@@ -54,6 +55,16 @@ class RedditPlugin(AutoGPTPluginTemplate):
         else:
             print("Reddit credentials not found in .env file.")
             self.api = None
+
+        if can_generate_posts:
+            print("Warning: CAN_GENERATE_POSTS is set to true. submit_post command is enabled.")
+        else:
+            print("Warning: CAN_GENERATE_POSTS is not set to true. submit_post command is disabled.")
+
+        if scenex_api_key:
+            print("SceneXplain API key set")
+        else:
+            print("Warning: SceneXplain API key not set. fetch_and_describe_image_post command is disabled.")
     rate_limit_reset_time = None
     def can_handle_on_response(self) -> bool:
         """This method is called to check that the plugin can
@@ -374,8 +385,8 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 },
                 lambda **kwargs: reddit_instance.search_comments(kwargs),
             )
-            scenex_api_key = os.environ.get("SCENEX_API_KEY")
-
+        scenex_api_key = os.environ.get("SCENEX_API_KEY")
+        # Conditionally add the fetch_and_describe_image_pos command
         if scenex_api_key:
             prompt.add_command(
                 "fetch_and_describe_image_post",
@@ -386,12 +397,8 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 lambda **kwargs: reddit_instance.fetch_and_describe_image_post(kwargs),
         
             )
-        else:
-            print(
-                "Warning: SceneXplain API key not set. fetch_and_describe_image_post command is disabled."
-            )
+       
         can_generate_posts = os.environ.get('CAN_GENERATE_POSTS', 'false').lower() == 'true'
-
         # Conditionally add the submit_post command
         if can_generate_posts:
             prompt.add_command(
@@ -404,8 +411,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 },
                 lambda **kwargs: reddit_instance.submit_post(kwargs)
             )
-        else:
-            print("Warning: CAN_GENERATE_POSTS is not set to true. submit_post command is disabled.")
+        
         return prompt
 
     def can_handle_text_embedding(self, text: str) -> bool:
