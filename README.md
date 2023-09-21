@@ -18,6 +18,7 @@ Reddit API integrations using PRAW.
 - **search_posts**: Search for posts based on a query.
 - **search_comments**: Search for comments based on a query.
 - **fetch_comment_tree**: Fetch a comment and all its children comments.
+- **submit_post**: Submit a post (`CAN_GENERATE_POSTS=true` in .env required)
 
 ### Requires a Scenex API (Not available without API)
 - **fetch_and_describe_image_post**: Fetch an image post and describe the image using SceneXplain.
@@ -47,6 +48,8 @@ Reddit API integrations using PRAW.
     REDDIT_PASSWORD=
     #Optional
     SCENEX_API_KEY=
+    CAN_GENERATE_POSTS=false
+    #(Default=false)
     ```
 
 ## Reddit API Setup Instructions
