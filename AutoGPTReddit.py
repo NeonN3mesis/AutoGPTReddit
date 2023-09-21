@@ -509,7 +509,7 @@ class AutoGPTReddit:
                 return json.dumps(response)
 
             # SceneXplain API request
-            YOUR_GENERATED_SECRET = os.environ.get("SCENEX_API_KEY", "Default_API_Key")
+            YOUR_GENERATED_SECRET = os.environ.get("SCENEX_API_KEY")
             
             data = {
                 "data": [
@@ -536,6 +536,7 @@ class AutoGPTReddit:
             response["data"] = {
                 "id": post.id,
                 "title": post.title,
+                "text": post.selftext,
                 "description": description,
             }
         except Exception as e:
