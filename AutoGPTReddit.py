@@ -41,6 +41,7 @@ class AutoGPTReddit:
             user_agent=reddit_user_agent,
             username=reddit_username,
             password=reddit_password,
+            check_for_async=False
         )
     
     def fetch_posts(self, args) -> str:
