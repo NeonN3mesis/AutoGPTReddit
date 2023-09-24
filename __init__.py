@@ -22,7 +22,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
     def __init__(self):
         super().__init__()    
         self._name = "autogpt-reddit"
-        self._version = "1.1.0"
+        self._version = "1.5.0"
         self._description = "Reddit API integrations using PRAW."
         self.client_id = os.getenv("REDDIT_CLIENT_ID")
         self.client_secret = os.getenv("REDDIT_CLIENT_SECRET")
@@ -313,7 +313,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
             )
             prompt.add_command(
                 "submit_comment",
-                "Submit a comment. (It's a good idea to make sure you haven't already responded to a comment first.)",
+                "Submit a comment on a post or another comment. (Do not duplicate responses. Check first.)",
                 {
                     "parent_id": "ID of the parent post or comment",
                     "content": "Content of the comment",
@@ -322,7 +322,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
             )
             prompt.add_command(
                 "message",
-                "Send a message response. (Cannot be used to reply to comments.)",
+                "Send a response to a direct message. (Cannot be used to reply to comments.)",
                 {
                     "message_id": "ID of the message",
                     "content": "Content of the response",
@@ -355,7 +355,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
             )
             prompt.add_command(
                 "read_notification",
-                "Read a specific single full notification",
+                "Read a specific notification with details",
                 {"message_id": "ID of the message to read"},
                 lambda **kwargs: reddit_instance.read_notification(kwargs),
             )
