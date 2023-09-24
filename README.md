@@ -7,7 +7,7 @@ Reddit API integrations using PRAW.
 - **fetch_comments**: Fetch comments from a post along with IDs and other metadata.
 - **vote**: Vote on a post or comment.
 - **fetch_notifications**: Fetch unread notifications.
-- **post_comment**: Post a comment.
+- **submit_comment**: Submit a comment.
 - **message**: Send a message response.
 - **subscribe_subreddit**: Subscribe to a subreddit.
 - **get_subscribed_subreddits**: Get a list of subscribed subreddits.
