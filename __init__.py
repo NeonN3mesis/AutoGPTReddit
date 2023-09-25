@@ -1,6 +1,6 @@
 """Reddit API integrations using PRAW."""
-import os
 import json
+import os
 import random
 import time
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, TypeVar
@@ -20,7 +20,7 @@ class Message(TypedDict):
 
 class RedditPlugin(AutoGPTPluginTemplate):
     def __init__(self):
-        super().__init__()    
+        super().__init__()
         self._name = "autogpt-reddit"
         self._version = "1.5.0"
         self._description = "Reddit API integrations using PRAW."
@@ -32,7 +32,9 @@ class RedditPlugin(AutoGPTPluginTemplate):
         self.post_id = []
         self.posts = []
         self.api = None
-        can_generate_posts = os.environ.get('CAN_GENERATE_POSTS', 'false').lower() == 'true'
+        can_generate_posts = (
+            os.environ.get("CAN_GENERATE_POSTS", "false").lower() == "true"
+        )
         scenex_api_key = os.environ.get("SCENEX_API_KEY")
 
         if (
@@ -57,15 +59,23 @@ class RedditPlugin(AutoGPTPluginTemplate):
             self.api = None
 
         if can_generate_posts:
-            print("Warning: CAN_GENERATE_POSTS is set to true. submit_post command is enabled.")
+            print(
+                "Warning: CAN_GENERATE_POSTS is set to true. submit_post command is enabled."
+            )
         else:
-            print("Warning: CAN_GENERATE_POSTS is not set to true. submit_post command is disabled.")
+            print(
+                "Warning: CAN_GENERATE_POSTS is not set to true. submit_post command is disabled."
+            )
 
         if scenex_api_key:
             print("SceneXplain API key set")
         else:
-            print("Warning: SceneXplain API key not set. fetch_and_describe_image_post command is disabled.")
+            print(
+                "Warning: SceneXplain API key not set. fetch_and_describe_image_post command is disabled."
+            )
+
     rate_limit_reset_time = None
+
     def can_handle_on_response(self) -> bool:
         """This method is called to check that the plugin can
         handle the on_response method.
@@ -195,10 +205,16 @@ class RedditPlugin(AutoGPTPluginTemplate):
         current_time = time.time()
         rate_limited_message = "You are not currently rate limited"
 
-        if AutoGPTReddit.rate_limit_reset_time and current_time < AutoGPTReddit.rate_limit_reset_time:
+        if (
+            AutoGPTReddit.rate_limit_reset_time
+            and current_time < AutoGPTReddit.rate_limit_reset_time
+        ):
             rate_limited_message = "You are rate limited and cannot post or comment"
 
-        if AutoGPTReddit.rate_limit_reset_time and current_time >= AutoGPTReddit.rate_limit_reset_time:
+        if (
+            AutoGPTReddit.rate_limit_reset_time
+            and current_time >= AutoGPTReddit.rate_limit_reset_time
+        ):
             AutoGPTReddit.rate_limit_reset_time = None
 
         if response:
@@ -208,10 +224,11 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 return json.dumps([rate_limited_message, response_dict])
             except json.JSONDecodeError:
                 # Handle JSON decode error
-                return json.dumps([rate_limited_message, {"error": "Invalid JSON response"}])
+                return json.dumps(
+                    [rate_limited_message, {"error": "Invalid JSON response"}]
+                )
         else:
             return json.dumps([rate_limited_message, {"error": "Empty response"}])
-
 
     def can_handle_chat_completion(
         self,
@@ -292,7 +309,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 "Fetch a comment and all its children comments.",
                 {
                     "comment_id": "ID of the root comment",
-                    "limit": "Number of child comments to fetch (default is all)"
+                    "limit": "Number of child comments to fetch (default is all)",
                 },
                 lambda **kwargs: reddit_instance.fetch_comment_tree(kwargs),
             )
@@ -385,6 +402,39 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 },
                 lambda **kwargs: reddit_instance.search_comments(kwargs),
             )
+            prompt.add_constraint(
+                {
+                    "You are prohibited from creating duplicate content or replying to the same notification twice.",
+                }
+            )
+            prompt.add_constraint(
+                {"You are prohibited from reavealing you are AI or non-human.",}
+            )
+            prompt.add_best_practice(
+                {
+                    "Use fetch_user_profile to check your own activity and notifications occasionally so you can dynamically calibrate your plans.",
+                }
+            )
+            prompt.add_best_practice(
+                {
+                    "People on Reddit do not content from non-humans like bots. Mimic human behavior and do not reveal you are AI.",
+                }
+            )
+            prompt.add_best_practice(
+                {
+                    "Use different post and comment sorting methods to maximize karma. Sorting by new can be effective.",
+                }
+            )
+            prompt.add_best_practice(
+                {
+                    "Check your profile, engage with posts, check your subreddits, and find new subreddits.",
+                }
+            )
+            prompt.add_best_practice(
+                {
+                    "Check your notifications and interact with people that interact with you.",
+                }
+            )
         scenex_api_key = os.environ.get("SCENEX_API_KEY")
         # Conditionally add the fetch_and_describe_image_pos command
         if scenex_api_key:
@@ -395,10 +445,11 @@ class RedditPlugin(AutoGPTPluginTemplate):
                     "post_id": "ID of the Reddit post to fetch and describe",
                 },
                 lambda **kwargs: reddit_instance.fetch_and_describe_image_post(kwargs),
-        
             )
-       
-        can_generate_posts = os.environ.get('CAN_GENERATE_POSTS', 'false').lower() == 'true'
+
+        can_generate_posts = (
+            os.environ.get("CAN_GENERATE_POSTS", "false").lower() == "true"
+        )
         # Conditionally add the submit_post command
         if can_generate_posts:
             prompt.add_command(
@@ -409,9 +460,9 @@ class RedditPlugin(AutoGPTPluginTemplate):
                     "content": "Content of the post",
                     "subreddit": "Subreddit to post to",
                 },
-                lambda **kwargs: reddit_instance.submit_post(kwargs)
+                lambda **kwargs: reddit_instance.submit_post(kwargs),
             )
-        
+
         return prompt
 
     def can_handle_text_embedding(self, text: str) -> bool:

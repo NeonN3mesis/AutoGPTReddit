@@ -1,12 +1,12 @@
 import http.client
 import json
+import os
 import re
 import time
-import os
 
 import praw
-import prawcore
 import praw.exceptions
+import prawcore
 from praw.models import MoreComments
 
 
@@ -41,9 +41,9 @@ class AutoGPTReddit:
             user_agent=reddit_user_agent,
             username=reddit_username,
             password=reddit_password,
-            check_for_async=False
+            check_for_async=False,
         )
-    
+
     def fetch_posts(self, args) -> str:
         response = {"status": "success"}
         char_count = 0
@@ -66,7 +66,11 @@ class AutoGPTReddit:
             output = []
             for post in posts:
                 if post.is_self or (not post.is_self and post.url):
-                    text = post.selftext[:200] + "..." if len(post.selftext) > 200 else post.selftext
+                    text = (
+                        post.selftext[:200] + "..."
+                        if len(post.selftext) > 200
+                        else post.selftext
+                    )
                     post_info = {
                         "id": post.id,
                         "title": post.title,
@@ -194,12 +198,18 @@ class AutoGPTReddit:
             subreddit = self.reddit.subreddit(subreddit_name)
 
             # Check if the subreddit requires flair
-            if subreddit.link_flair_position != 'none':
+            if subreddit.link_flair_position != "none":
                 # Fetch available flairs
                 available_flairs = list(subreddit.flair.link_templates)
                 if available_flairs:
-                    flair_options = [{"id": flair['id'], "text": flair['text']} for flair in available_flairs]
-                    self.set_error_response(response, "This subreddit requires flair. Please pick one and try again.")
+                    flair_options = [
+                        {"id": flair["id"], "text": flair["text"]}
+                        for flair in available_flairs
+                    ]
+                    self.set_error_response(
+                        response,
+                        "This subreddit requires flair. Please pick one and try again.",
+                    )
                     response["available_flairs"] = flair_options
                     return json.dumps(response)
 
@@ -252,7 +262,7 @@ class AutoGPTReddit:
         return json.dumps(response)
 
     def _create_notification_data(self, message):
-        content = message.body[:AutoGPTReddit.TRUNCATION_LIMIT]
+        content = message.body[: AutoGPTReddit.TRUNCATION_LIMIT]
         should_truncate = len(message.body) > AutoGPTReddit.TRUNCATION_LIMIT
         item_type = "comment" if message.fullname.startswith("t1_") else "message"
 
@@ -263,13 +273,14 @@ class AutoGPTReddit:
             "type": item_type,
         }
 
-
     def fetch_notifications(self, args):
         response = {"status": AutoGPTReddit.SUCCESS}
         try:
             limit = min(args.get("limit", 10), 5)
             unread_messages = list(self.reddit.inbox.unread(limit=limit))
-            notification_data = [self._create_notification_data(message) for message in unread_messages]
+            notification_data = [
+                self._create_notification_data(message) for message in unread_messages
+            ]
             response["data"] = notification_data
         except praw.exceptions.APIException as e:
             self.set_error_response(response, f"API exception: {str(e)}")
@@ -277,9 +288,8 @@ class AutoGPTReddit:
             self.set_error_response(response, f"Client exception: {str(e)}")
         except Exception as e:
             self.set_error_response(response, f"Unknown exception: {str(e)}")
-                    
-        return json.dumps(response)
 
+        return json.dumps(response)
 
     def message(self, args):
         response = {"status": "success"}
@@ -330,7 +340,6 @@ class AutoGPTReddit:
                         "post_id": comment.link_id,  # Fetching post ID
                         "body": comment.body,
                         "score": comment.score,
-                        
                     }
                     comments.append(comment_info)
                     char_count += len(json.dumps(comment_info))
@@ -348,7 +357,6 @@ class AutoGPTReddit:
             response["message"] = str(e)
 
         return json.dumps(response)
-
 
     def fetch_subreddit_info(self, args):
         response = {"status": "success"}
@@ -410,7 +418,6 @@ class AutoGPTReddit:
             response["status"] = "error"
             response["message"] = str(e)
         return json.dumps(response)
-
 
     def subscribe_subreddit(self, args):
         response = {"status": "success"}
@@ -474,7 +481,7 @@ class AutoGPTReddit:
         response = {"status": "success"}
         try:
             message_id = args["message_id"]
-            
+
             # Determine whether the ID corresponds to a comment or a message
             if message_id.startswith("t1_"):
                 message = self.reddit.comment(id=message_id[3:])
@@ -486,12 +493,12 @@ class AutoGPTReddit:
                 response["status"] = "error"
                 response["message"] = "Unknown message type"
                 return json.dumps(response)
-            
+
             response["data"] = {
                 "id": message.id,
                 "content": message.body,
                 "from": message.author.name if message.author else "Unknown",
-                "type": message_type
+                "type": message_type,
             }
         except Exception as e:
             response["status"] = "error"
@@ -511,7 +518,7 @@ class AutoGPTReddit:
 
             # SceneXplain API request
             YOUR_GENERATED_SECRET = os.environ.get("SCENEX_API_KEY")
-            
+
             data = {
                 "data": [
                     {"image": post.url, "features": []},
