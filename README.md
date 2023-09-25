@@ -2,6 +2,8 @@
 
 Reddit API integrations using PRAW.
 
+### :warning: WARNING: THIS PLUGIN ADDS SIGNIFIGANT OVERHEAD TO THE PROMT AND REQUESTS SIGNIFIGANT AMONTS OF DATA WHICH WILL DRASTICALLY INCREASE API USEAGE AND COST :warning:
+
 ## Available Commands
 
 - **fetch_comments**: Fetch comments from a post along with IDs and other metadata.
