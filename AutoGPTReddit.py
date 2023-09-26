@@ -10,6 +10,7 @@ import prawcore
 from praw.models import MoreComments
 
 
+
 class AutoGPTReddit:
     SUCCESS = "success"
     ERROR = "error"
@@ -27,6 +28,22 @@ class AutoGPTReddit:
         response["status"] = AutoGPTReddit.ERROR
         response["error_message"] = message
 
+    def seconds_to_detailed_time(seconds):
+        days = seconds // 86400
+        hours = (seconds % 86400) // 3600
+        minutes = (seconds % 3600) // 60
+        remaining_seconds = seconds % 60
+
+        if days > 0:
+            return f"{days} days"
+        elif hours > 0:
+            return f"{hours} hours"
+        elif minutes > 0:
+            return f"{minutes} minutes"
+        else:
+            return f"{remaining_seconds} seconds"
+
+    
     def __init__(
         self,
         reddit_app_id,
@@ -64,6 +81,7 @@ class AutoGPTReddit:
                 posts = subreddit.hot(limit=limit)
 
             output = []
+            current_time = time.time()
             for post in posts:
                 if post.is_self or (not post.is_self and post.url):
                     text = (
@@ -71,12 +89,15 @@ class AutoGPTReddit:
                         if len(post.selftext) > 200
                         else post.selftext
                     )
+                    age = current_time - post.created_utc  # Calculate the age of the post
+                    detailed_age = AutoGPTReddit.seconds_to_detailed_time(age)  # Format the age  
                     post_info = {
                         "id": post.id,
                         "title": post.title,
                         "text": text,
                         "score": post.score,
                         "comments_count": post.num_comments,
+                        "age": detailed_age 
                     }
                     output.append(post_info)
                     char_count += len(json.dumps(post_info))
@@ -110,12 +131,16 @@ class AutoGPTReddit:
             comments = submission.comments.list()[:limit]
 
             output = []
+            current_time = time.time()
             for comment in comments:
+                age = current_time - comment.created_utc  # Calculate the age of the post
+                detailed_age = AutoGPTReddit.seconds_to_detailed_time(age)  # Format the age  
                 comment_info = {
                     "Comment ID": comment.id,
                     "Content": comment.body[:200],
                     "score": comment.score,
                     "Author": str(comment.author),
+                    "age": detailed_age  
                 }
                 output.append(comment_info)
                 char_count += len(json.dumps(comment_info))
@@ -265,13 +290,18 @@ class AutoGPTReddit:
         content = message.body[: AutoGPTReddit.TRUNCATION_LIMIT]
         should_truncate = len(message.body) > AutoGPTReddit.TRUNCATION_LIMIT
         item_type = "comment" if message.fullname.startswith("t1_") else "message"
+        current_time = time.time()
+        age = current_time - message.created_utc
+        detailed_age = AutoGPTReddit.seconds_to_detailed_time(age)
 
         return {
             "id": message.fullname,
             "from": message.author.name if message.author else "Unknown",
             "content": content if not should_truncate else f"{content}...",
             "type": item_type,
+            "age": detailed_age  # Added this line
         }
+
 
     def fetch_notifications(self, args):
         response = {"status": AutoGPTReddit.SUCCESS}
@@ -381,7 +411,10 @@ class AutoGPTReddit:
             limit = args.get("limit", 10)
             posts = self.reddit.subreddit("all").search(query, limit=limit)
             post_data = []
+            current_time = time.time()
             for post in posts:
+                age = current_time - post.created_utc  # Calculate the age of the post
+                detailed_age = AutoGPTReddit.seconds_to_detailed_time(age)  # Format the age
                 post_data.append(
                     {
                         "id": post.id,
@@ -389,6 +422,7 @@ class AutoGPTReddit:
                         "content": post.selftext,
                         "score": post.score,
                         "comments_count": post.num_comments,
+                        "age": detailed_age
                     }
                 )
             response["data"] = post_data
@@ -404,13 +438,17 @@ class AutoGPTReddit:
             limit = args.get("limit", 10)
             comments = self.reddit.subreddit("all").search_comments(query, limit=limit)
             comment_data = []
+            current_time = time.time()
             for comment in comments:
+                age = current_time - comment.created_utc  # Calculate the age of the post
+                detailed_age = AutoGPTReddit.seconds_to_detailed_time(age)  # Format the age
                 comment_data.append(
                     {
                         "id": comment.id,
                         "content": comment.body,
                         "score": comment.score,
                         "parent_id": comment.parent_id,
+                        "age": detailed_age
                     }
                 )
             response["data"] = comment_data
