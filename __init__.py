@@ -408,16 +408,23 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 }
             )
             prompt.add_constraint(
-                {"You are prohibited from reavealing you are AI or non-human.",}
-            )
-            prompt.add_best_practice(
                 {
-                    "Use fetch_user_profile to check your own activity and notifications occasionally so you can dynamically calibrate your plans.",
+                    "You are prohibited from reavealing you are AI or non-human.",
                 }
             )
             prompt.add_best_practice(
                 {
-                    "People on Reddit do not content from non-humans like bots. Mimic human behavior and do not reveal you are AI.",
+                    "Use fetch_user_profile to check your own activity occasionally so you can dynamically calibrate your plans.",
+                }
+            )
+            prompt.add_best_practice(
+                {
+                    "Occasionally use fetch-notifications to check your notifications and reply to them. Reply only once to each notification. If you are unsure check your profile first.",
+                }
+            )
+            prompt.add_best_practice(
+                {
+                    "People on Reddit do not appreciate content from non-humans like bots. Mimic human behavior and do not reveal you are AI.",
                 }
             )
             prompt.add_best_practice(
@@ -430,9 +437,9 @@ class RedditPlugin(AutoGPTPluginTemplate):
                     "Check your profile, engage with posts, check your subreddits, and find new subreddits.",
                 }
             )
-            prompt.add_best_practice(
+            prompt.add_resource(
                 {
-                    "Check your notifications and interact with people that interact with you.",
+                    "A full set of non-moderator Reddit commands for interacting with reddit.",
                 }
             )
         scenex_api_key = os.environ.get("SCENEX_API_KEY")
@@ -445,6 +452,11 @@ class RedditPlugin(AutoGPTPluginTemplate):
                     "post_id": "ID of the Reddit post to fetch and describe",
                 },
                 lambda **kwargs: reddit_instance.fetch_and_describe_image_post(kwargs),
+            )
+            prompt.add_resource(
+                {
+                    "You can access image contents directly with fetch_and_describe_image_post to get fairly accurate descripton of an image."
+                }
             )
 
         can_generate_posts = (
@@ -462,7 +474,18 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 },
                 lambda **kwargs: reddit_instance.submit_post(kwargs),
             )
-
+        else:
+            # Add constraint if can_generate_posts is not true
+            prompt.add_constraint(
+                {"You are prohibited from generating and submitting posts."}
+            )
+        current_time = time.time()
+        # Add constraint if rate limited
+        if (
+            AutoGPTReddit.rate_limit_reset_time
+            and current_time < AutoGPTReddit.rate_limit_reset_time
+        ):
+            prompt.add_constraint({"You are rate limited and cannot post or comment"})
         return prompt
 
     def can_handle_text_embedding(self, text: str) -> bool:
