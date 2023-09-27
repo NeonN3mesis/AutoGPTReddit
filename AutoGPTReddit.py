@@ -4,12 +4,10 @@ import os
 import re
 import time
 
-
 import praw
 import praw.exceptions
 import prawcore
 from praw.models import MoreComments
-
 
 
 class AutoGPTReddit:
@@ -44,7 +42,6 @@ class AutoGPTReddit:
         else:
             return f"{remaining_seconds} seconds"
 
-    
     def __init__(
         self,
         reddit_app_id,
@@ -90,15 +87,19 @@ class AutoGPTReddit:
                         if len(post.selftext) > 200
                         else post.selftext
                     )
-                    age = current_time - post.created_utc  # Calculate the age of the post
-                    detailed_age = AutoGPTReddit.seconds_to_detailed_time(age)  # Format the age  
+                    age = (
+                        current_time - post.created_utc
+                    )  # Calculate the age of the post
+                    detailed_age = AutoGPTReddit.seconds_to_detailed_time(
+                        age
+                    )  # Format the age
                     post_info = {
                         "id": post.id,
                         "title": post.title,
                         "text": text,
                         "score": post.score,
                         "comments_count": post.num_comments,
-                        "age": detailed_age 
+                        "age": detailed_age,
                     }
                     output.append(post_info)
                     char_count += len(json.dumps(post_info))
@@ -134,14 +135,18 @@ class AutoGPTReddit:
             output = []
             current_time = time.time()
             for comment in comments:
-                age = current_time - comment.created_utc  # Calculate the age of the post
-                detailed_age = AutoGPTReddit.seconds_to_detailed_time(age)  # Format the age  
+                age = (
+                    current_time - comment.created_utc
+                )  # Calculate the age of the post
+                detailed_age = AutoGPTReddit.seconds_to_detailed_time(
+                    age
+                )  # Format the age
                 comment_info = {
                     "Comment ID": comment.id,
                     "Content": comment.body[:200],
                     "score": comment.score,
                     "Author": str(comment.author),
-                    "age": detailed_age  
+                    "age": detailed_age,
                 }
                 output.append(comment_info)
                 char_count += len(json.dumps(comment_info))
@@ -294,26 +299,28 @@ class AutoGPTReddit:
         current_time = time.time()
         age = current_time - message.created_utc
         detailed_age = AutoGPTReddit.seconds_to_detailed_time(age)
-        
+
         # Initialize the response data
         response_data = {
             "id": message.fullname,
             "from": message.author.name if message.author else "Unknown",
             "content": content if not should_truncate else f"{content}...",
             "type": item_type,
-            "age": detailed_age  # Added this line
+            "age": detailed_age,  # Added this line
         }
-        
+
         # If the notification is a comment reply, fetch the parent comment and its ID
         if item_type == "comment":
             try:
-                parent_comment = self.reddit.comment(message.parent_id.split('_')[1])
+                parent_comment = self.reddit.comment(message.parent_id.split("_")[1])
                 parent_comment.refresh()  # To ensure all attributes are populated
                 response_data["parent_comment_id"] = parent_comment.fullname
                 response_data["parent_comment_content"] = parent_comment.body
             except Exception as e:
-                response_data["parent_comment_error"] = f"Could not fetch parent comment: {str(e)}"
-        
+                response_data[
+                    "parent_comment_error"
+                ] = f"Could not fetch parent comment: {str(e)}"
+
         return response_data
 
     def fetch_notifications(self, args):
@@ -414,7 +421,9 @@ class AutoGPTReddit:
             current_time = time.time()
             for post in posts:
                 age = current_time - post.created_utc  # Calculate the age of the post
-                detailed_age = AutoGPTReddit.seconds_to_detailed_time(age)  # Format the age
+                detailed_age = AutoGPTReddit.seconds_to_detailed_time(
+                    age
+                )  # Format the age
                 post_data.append(
                     {
                         "id": post.id,
@@ -422,7 +431,7 @@ class AutoGPTReddit:
                         "content": post.selftext,
                         "score": post.score,
                         "comments_count": post.num_comments,
-                        "age": detailed_age
+                        "age": detailed_age,
                     }
                 )
             response["data"] = post_data
@@ -440,15 +449,19 @@ class AutoGPTReddit:
             comment_data = []
             current_time = time.time()
             for comment in comments:
-                age = current_time - comment.created_utc  # Calculate the age of the post
-                detailed_age = AutoGPTReddit.seconds_to_detailed_time(age)  # Format the age
+                age = (
+                    current_time - comment.created_utc
+                )  # Calculate the age of the post
+                detailed_age = AutoGPTReddit.seconds_to_detailed_time(
+                    age
+                )  # Format the age
                 comment_data.append(
                     {
                         "id": comment.id,
                         "content": comment.body,
                         "score": comment.score,
                         "parent_id": comment.parent_id,
-                        "age": detailed_age
+                        "age": detailed_age,
                     }
                 )
             response["data"] = comment_data
@@ -638,23 +651,33 @@ class AutoGPTReddit:
 
         return json.dumps(response, ensure_ascii=False)
 
-    
     def get_comment_info(self, comment_id: str) -> dict:
         comment = self.reddit.comment(id=comment_id)
-        parent_comment = self.reddit.comment(id=comment.parent_id.split('_')[1]).body if comment.is_root else None
+        parent_comment = (
+            self.reddit.comment(id=comment.parent_id.split("_")[1]).body
+            if comment.is_root
+            else None
+        )
         return {
             "parent_comments": parent_comment
             # Add more fields as needed
         }
-    
+
     def respond_to_notification(self, args):
         response = {"status": AutoGPTReddit.SUCCESS}
         try:
-            notification_id = args.get("notification_id")  # Get the notification ID from args
-            reply_content = args.get("reply_content")  # Get the content to reply with from args
+            notification_id = args.get(
+                "notification_id"
+            )  # Get the notification ID from args
+            reply_content = args.get(
+                "reply_content"
+            )  # Get the content to reply with from args
 
             if not notification_id or not reply_content:
-                self.set_error_response(response, "Missing required arguments (notification_id, reply_content)")
+                self.set_error_response(
+                    response,
+                    "Missing required arguments (notification_id, reply_content)",
+                )
                 return json.dumps(response)
 
             # Fetch the unread messages from the inbox
@@ -668,7 +691,9 @@ class AutoGPTReddit:
                     break
 
             if not notification_message:
-                self.set_error_response(response, f"No unread notification found with ID {notification_id}")
+                self.set_error_response(
+                    response, f"No unread notification found with ID {notification_id}"
+                )
                 return json.dumps(response)
 
             # Mark the notification as read
@@ -682,7 +707,9 @@ class AutoGPTReddit:
 
             # Reply to the comment or message
             comment = parent_item.reply(reply_content)
-            response["message"] = "Successfully replied and marked the notification as read."
+            response[
+                "message"
+            ] = "Successfully replied and marked the notification as read."
             response["data"] = {
                 "id": comment.id,
                 "message": "Reply posted successfully",
@@ -707,7 +734,7 @@ class AutoGPTReddit:
 
             # Fetch the Reddit post using its ID
             post = self.reddit.submission(id=post_id)
-            
+
             # Calculate the age of the post
             current_time = time.time()
             age = current_time - post.created_utc
@@ -732,7 +759,9 @@ class AutoGPTReddit:
             for comment in post.comments[:3]:
                 comment_details = {
                     "id": comment.id,
-                    "content": comment.body[:50] + "..." if len(comment.body) > 50 else comment.body,
+                    "content": comment.body[:50] + "..."
+                    if len(comment.body) > 50
+                    else comment.body,
                     "score": comment.score,
                     "author": str(comment.author),
                 }
@@ -752,4 +781,3 @@ class AutoGPTReddit:
             self.set_error_response(response, f"Unknown exception: {str(e)}")
 
         return json.dumps(response, ensure_ascii=False)
-
