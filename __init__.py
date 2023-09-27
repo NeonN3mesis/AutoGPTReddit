@@ -3,12 +3,14 @@ import json
 import os
 import random
 import time
+import re
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, TypeVar
 
 import praw
 from auto_gpt_plugin_template import AutoGPTPluginTemplate
-
+from autogpt.logs.helpers import print_attribute
 from .AutoGPTReddit import AutoGPTReddit
+
 
 PromptGenerator = TypeVar("PromptGenerator")
 
@@ -99,17 +101,13 @@ class RedditPlugin(AutoGPTPluginTemplate):
         handle the on_planning method.
         Returns:
             bool: True if the plugin can handle the on_planning method."""
-        return False
+        return True
 
     def on_planning(
-        self, prompt: PromptGenerator, messages: List[str]
-    ) -> Optional[str]:
-        """This method is called before the planning chat completeion is done.
-        Args:
-            prompt (PromptGenerator): The prompt generator.
-            messages (List[str]): The list of messages.
-        """
+            self, prompt: PromptGenerator, messages: List[Message]
+        ) -> Optional[str]:
         pass
+
 
     def can_handle_post_planning(self) -> bool:
         """This method is called to check that the plugin can
@@ -126,6 +124,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
             str: The resulting response.
         """
         pass
+        
 
     def can_handle_pre_instruction(self) -> bool:
         """This method is called to check that the plugin can
@@ -180,7 +179,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
         handle the pre_command method.
         Returns:
             bool: True if the plugin can handle the pre_command method."""
-        return False
+        return True
 
     def pre_command(
         self, command_name: str, arguments: Dict[str, Any]
@@ -192,7 +191,54 @@ class RedditPlugin(AutoGPTPluginTemplate):
         Returns:
             Tuple[str, Dict[str, Any]]: The command name and the arguments.
         """
-        pass
+        
+        # Initialize the Reddit instance from AutoGPTReddit.py
+        if self.api:
+            reddit_instance = AutoGPTReddit(
+                self.client_id,
+                self.client_secret,
+                self.user_agent,
+                self.username,
+                self.password,
+            )
+
+        # Check for Reddit post IDs in arguments and fetch information
+        post_ids = arguments.get("post_ids", [])
+        post_info = {}
+        for post_id in post_ids:
+            post_info[post_id] = reddit_instance.get_post_info(post_id)
+
+        # Check for Reddit comment IDs in arguments and fetch information
+        comment_ids = arguments.get("comment_ids", [])
+        comment_info = {}
+        for comment_id in comment_ids:
+            comment_info[comment_id] = reddit_instance.get_comment_info(comment_id)
+
+        # Combine the fetched information based on specified fields
+        fetched_info = {}
+
+        if post_info:
+            fetched_info["posts"] = {
+                post_id: {
+                    "title": info["title"],
+                    "text": info["text"]
+                }
+                for post_id, info in post_info.items()
+            }
+
+        if comment_info:
+            fetched_info["comments"] = {
+                comment_id: {
+                    "parent_comments": info["parent_comments"]
+                }
+                for comment_id, info in comment_info.items()
+            }
+
+        # Append this fetched info to the arguments or handle as needed
+        
+        print_attribute(fetched_info)
+        return  command_name, arguments
+
 
     def can_handle_post_command(self) -> bool:
         """This method is called to check that the plugin can
@@ -274,6 +320,10 @@ class RedditPlugin(AutoGPTPluginTemplate):
         Returns:
             PromptGenerator: The prompt generator.
         """
+        
+         
+        
+        
         if self.api:
             reddit_instance = AutoGPTReddit(
                 self.client_id,
@@ -289,10 +339,18 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 {
                     "subreddit": 'Name of the subreddit (default is "all")',
                     "sort_by": 'Sorting criteria ("hot", "new", "top"; default is "hot")',
-                    "limit": "Number of posts to fetch (default is 10)",
+                    "limit": "Number of posts to fetch (default is 20)",
                     "time_filter": 'Time filter for trending posts ("day", "week", "month", "year", "all"; default is "day")',
                 },
                 lambda **kwargs: reddit_instance.fetch_posts(kwargs),
+            )
+            prompt.add_command(
+                "fetch_post_details",
+                "Fetch detailed information of a Reddit post along with its top 3 comments.",
+                {
+                    "post_id": "ID of the post whose details are to be fetched",
+                },
+                lambda **kwargs: reddit_instance.fetch_post_details(kwargs),
             )
             prompt.add_command(
                 "fetch_comments",
@@ -314,6 +372,15 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 lambda **kwargs: reddit_instance.fetch_comment_tree(kwargs),
             )
             prompt.add_command(
+                "submit_comment",
+                "Submit a comment on a post or another comment. (Do not duplicate responses. Check first.)",
+                {
+                    "parent_id": "ID of the parent post or comment",
+                    "content": "Content of the comment",
+                },
+                lambda **kwargs: reddit_instance.submit_comment(kwargs),
+            )
+            prompt.add_command(
                 "vote",
                 "Vote on a post or comment",
                 {
@@ -329,22 +396,13 @@ class RedditPlugin(AutoGPTPluginTemplate):
                 lambda **kwargs: reddit_instance.fetch_notifications(kwargs),
             )
             prompt.add_command(
-                "submit_comment",
-                "Submit a comment on a post or another comment. (Do not duplicate responses. Check first.)",
+                "respond_to_notification",
+                "Respond to a notification and mark it as read",
                 {
-                    "parent_id": "ID of the parent post or comment",
-                    "content": "Content of the comment",
+                    "notification_id": "ID of the notification to respond to and mark as read",
+                    "reply_content": "The content to reply with",
                 },
-                lambda **kwargs: reddit_instance.submit_comment(kwargs),
-            )
-            prompt.add_command(
-                "message",
-                "Send a response to a direct message. (Cannot be used to reply to comments.)",
-                {
-                    "message_id": "ID of the message",
-                    "content": "Content of the response",
-                },
-                lambda **kwargs: reddit_instance.message(kwargs),
+                lambda **kwargs: reddit_instance.respond_to_notification(kwargs),
             )
             prompt.add_command(
                 "subscribe_subreddit",
@@ -486,6 +544,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
             and current_time < AutoGPTReddit.rate_limit_reset_time
         ):
             prompt.add_constraint({"You are rate limited and cannot post or comment"})
+                
         return prompt
 
     def can_handle_text_embedding(self, text: str) -> bool:

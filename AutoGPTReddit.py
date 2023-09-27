@@ -4,6 +4,7 @@ import os
 import re
 import time
 
+
 import praw
 import praw.exceptions
 import prawcore
@@ -67,7 +68,7 @@ class AutoGPTReddit:
         try:
             subreddit_name = args.get("subreddit", "all")
             sort_by = args.get("sort_by", "hot")
-            limit = args.get("limit", 10)
+            limit = args.get("limit", 20)
             time_filter = args.get("time_filter", "day")
 
             subreddit = self.reddit.subreddit(subreddit_name)
@@ -109,7 +110,7 @@ class AutoGPTReddit:
             response["status"] = "error"
             response["message"] = str(e)
 
-        return json.dumps(response)
+        return json.dumps(response, ensure_ascii=False)
 
     def fetch_comments(self, args) -> str:
         response = {"status": "success"}
@@ -152,7 +153,7 @@ class AutoGPTReddit:
             response["status"] = "error"
             response["message"] = str(e)
 
-        return json.dumps(response)
+        return json.dumps(response, ensure_ascii=False)
 
     def submit_comment(self, args):
         response = {"status": "success"}
@@ -202,7 +203,7 @@ class AutoGPTReddit:
         except Exception as e:
             self.set_error_response(response, f"Unknown exception: {str(e)}")
 
-        return json.dumps(response)
+        return json.dumps(response, ensure_ascii=False)
 
     def submit_post(self, args):
         response = {"status": "success"}
@@ -264,7 +265,7 @@ class AutoGPTReddit:
         except Exception as e:
             self.set_error_response(response, f"Unknown exception: {str(e)}")
 
-        return json.dumps(response)
+        return json.dumps(response, ensure_ascii=False)
 
     def vote(self, args):
         response = {"status": "success"}
@@ -284,7 +285,7 @@ class AutoGPTReddit:
         except Exception as e:
             response["status"] = "error"
             response["message"] = str(e)
-        return json.dumps(response)
+        return json.dumps(response, ensure_ascii=False)
 
     def _create_notification_data(self, message):
         content = message.body[: AutoGPTReddit.TRUNCATION_LIMIT]
@@ -293,15 +294,27 @@ class AutoGPTReddit:
         current_time = time.time()
         age = current_time - message.created_utc
         detailed_age = AutoGPTReddit.seconds_to_detailed_time(age)
-
-        return {
+        
+        # Initialize the response data
+        response_data = {
             "id": message.fullname,
             "from": message.author.name if message.author else "Unknown",
             "content": content if not should_truncate else f"{content}...",
             "type": item_type,
             "age": detailed_age  # Added this line
         }
-
+        
+        # If the notification is a comment reply, fetch the parent comment and its ID
+        if item_type == "comment":
+            try:
+                parent_comment = self.reddit.comment(message.parent_id.split('_')[1])
+                parent_comment.refresh()  # To ensure all attributes are populated
+                response_data["parent_comment_id"] = parent_comment.fullname
+                response_data["parent_comment_content"] = parent_comment.body
+            except Exception as e:
+                response_data["parent_comment_error"] = f"Could not fetch parent comment: {str(e)}"
+        
+        return response_data
 
     def fetch_notifications(self, args):
         response = {"status": AutoGPTReddit.SUCCESS}
@@ -319,20 +332,7 @@ class AutoGPTReddit:
         except Exception as e:
             self.set_error_response(response, f"Unknown exception: {str(e)}")
 
-        return json.dumps(response)
-
-    def message(self, args):
-        response = {"status": "success"}
-        try:
-            message_id = args["message_id"]
-            content = args["content"]
-            message = self.reddit.inbox.message(message_id)
-            message.reply(content)
-            response["data"] = {"id": message_id, "response_content": content}
-        except Exception as e:
-            response["status"] = "error"
-            response["message"] = str(e)
-        return json.dumps(response)
+        return json.dumps(response, ensure_ascii=False)
 
     def fetch_user_profile(self, args) -> str:
         response = {"status": "success"}
@@ -386,7 +386,7 @@ class AutoGPTReddit:
             response["status"] = "error"
             response["message"] = str(e)
 
-        return json.dumps(response)
+        return json.dumps(response, ensure_ascii=False)
 
     def fetch_subreddit_info(self, args):
         response = {"status": "success"}
@@ -429,7 +429,7 @@ class AutoGPTReddit:
         except Exception as e:
             response["status"] = "error"
             response["message"] = str(e)
-        return json.dumps(response)
+        return json.dumps(response, ensure_ascii=False)
 
     def search_comments(self, args):
         response = {"status": "success"}
@@ -455,7 +455,7 @@ class AutoGPTReddit:
         except Exception as e:
             response["status"] = "error"
             response["message"] = str(e)
-        return json.dumps(response)
+        return json.dumps(response, ensure_ascii=False)
 
     def subscribe_subreddit(self, args):
         response = {"status": "success"}
@@ -467,7 +467,7 @@ class AutoGPTReddit:
         except prawcore.exceptions.RequestException as e:
             response["status"] = "error"
             response["message"] = "An error occurred while subscribing"
-        return json.dumps(response)
+        return json.dumps(response, ensure_ascii=False)
 
     def get_subscribed_subreddits(self, args=None):
         response = {"status": "success"}
@@ -479,7 +479,7 @@ class AutoGPTReddit:
         except prawcore.exceptions.RequestException as e:
             response["status"] = "error"
             response["message"] = "An error occurred"
-        return json.dumps(response)
+        return json.dumps(response, ensure_ascii=False)
 
     def get_subreddit_info(self, args):
         response = {"status": "success"}
@@ -500,7 +500,7 @@ class AutoGPTReddit:
         except Exception as e:
             response["status"] = "error"
             response["message"] = f"An error occurred: {e}"
-        return json.dumps(response)
+        return json.dumps(response, ensure_ascii=False)
 
     def get_popular_subreddits(self, args):
         response = {"status": "success"}
@@ -513,7 +513,7 @@ class AutoGPTReddit:
         except prawcore.exceptions.RequestException as e:
             response["status"] = "error"
             response["message"] = f"An error occurred: {e}"
-        return json.dumps(response)
+        return json.dumps(response, ensure_ascii=False)
 
     def read_notification(self, args):
         response = {"status": "success"}
@@ -541,7 +541,7 @@ class AutoGPTReddit:
         except Exception as e:
             response["status"] = "error"
             response["message"] = f"An error occurred: {e}"
-        return json.dumps(response)
+        return json.dumps(response, ensure_ascii=False)
 
     def fetch_and_describe_image_post(self, args):
         response = {"status": "success"}
@@ -552,7 +552,7 @@ class AutoGPTReddit:
             if not post.url.lower().endswith((".png", ".jpg", ".jpeg")):
                 response["status"] = "error"
                 response["message"] = "Not an image post."
-                return json.dumps(response)
+                return json.dumps(response, ensure_ascii=False)
 
             # SceneXplain API request
             YOUR_GENERATED_SECRET = os.environ.get("SCENEX_API_KEY")
@@ -589,7 +589,7 @@ class AutoGPTReddit:
             response["status"] = "error"
             response["message"] = str(e)
 
-        return json.dumps(response)
+        return json.dumps(response, ensure_ascii=False)
 
     def fetch_comment_tree(self, args) -> str:
         response = {"status": "success"}
@@ -636,4 +636,120 @@ class AutoGPTReddit:
             response["status"] = "error"
             response["message"] = str(e)
 
-        return json.dumps(response)
+        return json.dumps(response, ensure_ascii=False)
+
+    
+    def get_comment_info(self, comment_id: str) -> dict:
+        comment = self.reddit.comment(id=comment_id)
+        parent_comment = self.reddit.comment(id=comment.parent_id.split('_')[1]).body if comment.is_root else None
+        return {
+            "parent_comments": parent_comment
+            # Add more fields as needed
+        }
+    
+    def respond_to_notification(self, args):
+        response = {"status": AutoGPTReddit.SUCCESS}
+        try:
+            notification_id = args.get("notification_id")  # Get the notification ID from args
+            reply_content = args.get("reply_content")  # Get the content to reply with from args
+
+            if not notification_id or not reply_content:
+                self.set_error_response(response, "Missing required arguments (notification_id, reply_content)")
+                return json.dumps(response)
+
+            # Fetch the unread messages from the inbox
+            unread_messages = list(self.reddit.inbox.unread(limit=None))
+
+            # Find the notification message by its ID
+            notification_message = None
+            for message in unread_messages:
+                if message.fullname == notification_id:
+                    notification_message = message
+                    break
+
+            if not notification_message:
+                self.set_error_response(response, f"No unread notification found with ID {notification_id}")
+                return json.dumps(response)
+
+            # Mark the notification as read
+            notification_message.mark_read()
+
+            # Check if the notification is a comment or a message
+            if notification_message.fullname.startswith("t1_"):  # It's a comment
+                parent_item = self.reddit.comment(id=notification_message.id)
+            else:  # It's a message
+                parent_item = notification_message
+
+            # Reply to the comment or message
+            comment = parent_item.reply(reply_content)
+            response["message"] = "Successfully replied and marked the notification as read."
+            response["data"] = {
+                "id": comment.id,
+                "message": "Reply posted successfully",
+            }
+        except praw.exceptions.APIException as e:
+            self.set_error_response(response, f"API exception: {str(e)}")
+        except praw.exceptions.ClientException as e:
+            self.set_error_response(response, f"Client exception: {str(e)}")
+        except Exception as e:
+            self.set_error_response(response, f"Unknown exception: {str(e)}")
+
+        return json.dumps(response, ensure_ascii=False)
+
+    def fetch_post_details(self, args) -> str:
+        response = {"status": AutoGPTReddit.SUCCESS}
+        char_count = 0
+        try:
+            post_id = args.get("post_id")
+            if not post_id:
+                self.set_error_response(response, "Missing post_id")
+                return json.dumps(response)
+
+            # Fetch the Reddit post using its ID
+            post = self.reddit.submission(id=post_id)
+            
+            # Calculate the age of the post
+            current_time = time.time()
+            age = current_time - post.created_utc
+            detailed_age = AutoGPTReddit.seconds_to_detailed_time(age)
+
+            post_details = {
+                "id": post.id,
+                "title": post.title,
+                "author": str(post.author),
+                "content": post.selftext,
+                "score": post.score,
+                "age": detailed_age,  # Using 'age' instead of 'created_utc'
+                "comments_count": post.num_comments,
+                "upvote_ratio": post.upvote_ratio,
+            }
+            char_count += len(json.dumps(post_details))
+
+            # Fetch the top 3 comments
+            top_comments = []
+            post.comment_sort = "best"
+            post.comments.replace_more(limit=0)
+            for comment in post.comments[:3]:
+                comment_details = {
+                    "id": comment.id,
+                    "content": comment.body[:50] + "..." if len(comment.body) > 50 else comment.body,
+                    "score": comment.score,
+                    "author": str(comment.author),
+                }
+                top_comments.append(comment_details)
+                char_count += len(json.dumps(comment_details))
+                if char_count >= 2500:
+                    break
+
+            post_details["top_comments"] = top_comments
+            response["data"] = post_details
+
+        except praw.exceptions.APIException as e:
+            self.set_error_response(response, f"API exception: {str(e)}")
+        except praw.exceptions.ClientException as e:
+            self.set_error_response(response, f"Client exception: {str(e)}")
+        except Exception as e:
+            self.set_error_response(response, f"Unknown exception: {str(e)}")
+
+        return json.dumps(response, ensure_ascii=False)
+
