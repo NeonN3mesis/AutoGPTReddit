@@ -1,5 +1,6 @@
 """Reddit API integrations using PRAW."""
 import json
+import logging
 import os
 import random
 import re
@@ -14,6 +15,20 @@ from .AutoGPTReddit import AutoGPTReddit
 
 PromptGenerator = TypeVar("PromptGenerator")
 
+def extract_types(params):
+    """Helper function to extract type information from a dictionary of parameters."""
+    # Initialize an empty dictionary to store the extracted types
+    extracted_types = {}
+    
+    # Iterate through each key-value pair in the 'params' dictionary
+    for key, value in params.items():
+        # Check if the 'type' key exists in the 'value' dictionary
+        if 'type' in value:
+            # Add the parameter name and its type to the 'extracted_types' dictionary
+            extracted_types[key] = value['type']
+    
+    # Return the 'extracted_types' dictionary
+    return extracted_types
 
 class Message(TypedDict):
     role: str
@@ -177,7 +192,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
         handle the pre_command method.
         Returns:
             bool: True if the plugin can handle the pre_command method."""
-        return False
+        return True
 
     def pre_command(
         self, command_name: str, arguments: Dict[str, Any]
@@ -189,7 +204,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
         Returns:
             Tuple[str, Dict[str, Any]]: The command name and the arguments.
         """
-
+        logger = logging.getLogger("USER_FRIENDLY_OUTPUT_LOGGER")
         # Initialize the Reddit instance from AutoGPTReddit.py
         if self.api:
             reddit_instance = AutoGPTReddit(
@@ -229,7 +244,7 @@ class RedditPlugin(AutoGPTPluginTemplate):
 
         # Append this fetched info to the arguments or handle as needed
 
-        print_attribute(fetched_info)
+        logger.info(fetched_info)
         return command_name, arguments
 
     def can_handle_post_command(self) -> bool:
@@ -325,129 +340,167 @@ class RedditPlugin(AutoGPTPluginTemplate):
             prompt.add_command(
                 "fetch_posts",
                 "Fetch only text and link posts from a subreddit along with IDs, truncated text, and other metadata. Can also fetch trending posts.",
-                {
-                    "subreddit": 'Name of the subreddit (default is "all")',
-                    "sort_by": 'Sorting criteria ("hot", "new", "top"; default is "hot")',
-                    "limit": "Number of posts to fetch (default is 20)",
-                    "time_filter": 'Time filter for trending posts ("day", "week", "month", "year", "all"; default is "day")',
-                },
-                lambda **kwargs: reddit_instance.fetch_posts(kwargs),
+                extract_types({
+                    "subreddit": {"description": 'Name of the subreddit (default is "all")', "type": "string"},
+                    "sort_by": {"description": 'Sorting criteria ("hot", "new", "top"; default is "hot")', "type": "string"},
+                    "limit": {"description": "Number of posts to fetch (default is 20)", "type": "integer"},
+                    "time_filter": {"description": 'Time filter for trending posts ("day", "week", "month", "year", "all"; default is "day")', "type": "string"},
+                }),
+                lambda **kwargs: reddit_instance.fetch_posts(kwargs)
             )
+            
+            # fetch_post_details command
             prompt.add_command(
                 "fetch_post_details",
                 "Fetch detailed information of a Reddit post along with its top 3 comments.",
-                {
-                    "post_id": "ID of the post whose details are to be fetched",
-                },
-                lambda **kwargs: reddit_instance.fetch_post_details(kwargs),
+                extract_types({
+                    "post_id": {"type": "string"},
+                }),
+                lambda **kwargs: reddit_instance.fetch_post_details(kwargs)
             )
+            
+            # fetch_comments command
             prompt.add_command(
                 "fetch_comments",
                 "Fetch comments from a post along with IDs and other metadata",
-                {
-                    "post_id": "ID of the post",
-                    "limit": "Number of comments to fetch (default is 10)",
-                    "sort_by": 'Sorting criteria ("best", "top", "new", "controversial", "old", "random", "qa", "live"; default is "best")',
-                },
-                lambda **kwargs: reddit_instance.fetch_comments(kwargs),
+                extract_types({
+                    "post_id": {"type": "string"},
+                    "limit": {"type": "integer"},
+                    "sort_by": {"type": "string"},
+                }),
+                lambda **kwargs: reddit_instance.fetch_comments(kwargs)
             )
+            
+            # fetch_comment_tree command
             prompt.add_command(
                 "fetch_comment_tree",
                 "Fetch a comment and all its children comments.",
-                {
-                    "comment_id": "ID of the root comment",
-                    "limit": "Number of child comments to fetch (default is all)",
-                },
-                lambda **kwargs: reddit_instance.fetch_comment_tree(kwargs),
+                extract_types({
+                    "comment_id": {"type": "string"},
+                    "limit": {"type": "string"},
+                }),
+                lambda **kwargs: reddit_instance.fetch_comment_tree(kwargs)
             )
+            
+            # submit_comment command
             prompt.add_command(
                 "submit_comment",
                 "Submit a comment on a post or another comment. (Do not duplicate responses. Check first.)",
-                {
-                    "parent_id": "ID of the parent post or comment",
-                    "content": "Content of the comment",
-                },
-                lambda **kwargs: reddit_instance.submit_comment(kwargs),
+                extract_types({
+                    "parent_id": {"type": "string"},
+                    "content": {"type": "string"},
+                }),
+                lambda **kwargs: reddit_instance.submit_comment(kwargs)
             )
+            
+            # vote command
             prompt.add_command(
                 "vote",
                 "Vote on a post or comment",
-                {
-                    "id": "ID of the post or comment",
-                    "action": 'Vote action ("upvote", "downvote")',
-                },
-                lambda **kwargs: reddit_instance.vote(kwargs),
+                extract_types({
+                    "id": {"type": "string"},
+                    "action": {"type": "string"},
+                }),
+                lambda **kwargs: reddit_instance.vote(kwargs)
             )
+            
+            # fetch_notifications command
             prompt.add_command(
                 "fetch_notifications",
                 "Fetch unread notifications.",
-                {"limit": "Number of notifications to fetch (default is 10)"},
-                lambda **kwargs: reddit_instance.fetch_notifications(kwargs),
+                extract_types({
+                    "limit": {"type": "integer"},
+                }),
+                lambda **kwargs: reddit_instance.fetch_notifications(kwargs)
             )
+            
+            # respond_to_notification command
             prompt.add_command(
                 "respond_to_notification",
-                "Respond to a notification and mark it as read",
-                {
-                    "notification_id": "ID of the notification to respond to and mark as read",
-                    "reply_content": "The content to reply with",
-                },
-                lambda **kwargs: reddit_instance.respond_to_notification(kwargs),
+                "Respond to a comment or message notification and mark it as read",
+                extract_types({
+                    "notification_id": {"type": "string"},
+                    "reply_content": {"type": "string"},
+                }),
+                lambda **kwargs: reddit_instance.respond_to_notification(kwargs)
             )
+            
+            # subscribe_subreddit command
             prompt.add_command(
                 "subscribe_subreddit",
                 "Subscribe to a subreddit",
-                {"subreddit": "Name of the subreddit"},
-                lambda **kwargs: reddit_instance.subscribe_subreddit(kwargs),
+                extract_types({
+                    "subreddit": {"type": "string"},
+                }),
+                lambda **kwargs: reddit_instance.subscribe_subreddit(kwargs)
             )
+            
+            # get_subscribed_subreddits command
             prompt.add_command(
                 "get_subscribed_subreddits",
                 "Get a list of subscribed subreddits",
-                {},
-                lambda **kwargs: reddit_instance.get_subscribed_subreddits(kwargs),
+                extract_types({}),
+                lambda **kwargs: reddit_instance.get_subscribed_subreddits(kwargs)
             )
+            
+            # get_subreddit_info command
             prompt.add_command(
                 "get_subreddit_info",
                 "Fetch information about a specific subreddit",
-                {"subreddit": "Name of the subreddit"},
-                lambda **kwargs: reddit_instance.get_subreddit_info(kwargs),
+                extract_types({
+                    "subreddit": {"type": "string"},
+                }),
+                lambda **kwargs: reddit_instance.get_subreddit_info(kwargs)
             )
+            
+            # get_popular_subreddits command
             prompt.add_command(
                 "get_popular_subreddits",
                 "Fetch a list of popular subreddits",
-                {},
-                lambda **kwargs: reddit_instance.get_popular_subreddits(kwargs),
+                extract_types({}),
+                lambda **kwargs: reddit_instance.get_popular_subreddits(kwargs)
             )
+            
+            # read_notification command
             prompt.add_command(
                 "read_notification",
                 "Read a specific notification with details",
-                {"message_id": "ID of the message to read"},
-                lambda **kwargs: reddit_instance.read_notification(kwargs),
+                extract_types({
+                    "message_id": {"type": "string"},
+                }),
+                lambda **kwargs: reddit_instance.read_notification(kwargs)
             )
+            
+            # fetch_user_profile command
             prompt.add_command(
                 "fetch_user_profile",
                 "Fetches relevant information from a user's profile",
-                {
-                    "username": "The username of the Reddit user whose profile you want to fetch",
-                },
-                lambda **kwargs: reddit_instance.fetch_user_profile(kwargs),
+                extract_types({
+                    "username": {"type": "string"},
+                }),
+                lambda **kwargs: reddit_instance.fetch_user_profile(kwargs)
             )
+            
+            # search_posts command
             prompt.add_command(
                 "search_posts",
                 "Search for posts based on a query",
-                {
-                    "query": "Search query",
-                    "limit": "Number of posts to fetch (default is 10)",
-                },
-                lambda **kwargs: reddit_instance.search_posts(kwargs),
+                extract_types({
+                    "query": {"type": "string"},
+                    "limit": {"type": "integer"},
+                }),
+                lambda **kwargs: reddit_instance.search_posts(kwargs)
             )
+            
+            # search_comments command
             prompt.add_command(
                 "search_comments",
                 "Search for comments based on a query",
-                {
-                    "query": "Search query",
-                    "limit": "Number of comments to fetch (default is 10)",
-                },
-                lambda **kwargs: reddit_instance.search_comments(kwargs),
+                extract_types({
+                    "query": {"type": "string"},
+                    "limit": {"type": "integer"},
+                }),
+                lambda **kwargs: reddit_instance.search_comments(kwargs)
             )
             prompt.add_constraint(
                 {
@@ -484,20 +537,25 @@ class RedditPlugin(AutoGPTPluginTemplate):
                     "Check your profile, engage with posts, check your subreddits, and find new subreddits.",
                 }
             )
+            prompt.add_best_practice(
+                {
+                    "If you want to respond to a noitification, use respond_to_notification so the notification will be cleared minimizing the chance of responding to the same thing twice.",
+                }
+            )
             prompt.add_resource(
                 {
                     "A full set of non-moderator Reddit commands for interacting with reddit.",
                 }
             )
         scenex_api_key = os.environ.get("SCENEX_API_KEY")
-        # Conditionally add the fetch_and_describe_image_pos command
+        # Conditionally add the fetch_and_describe_image_post command
         if scenex_api_key:
             prompt.add_command(
                 "fetch_and_describe_image_post",
                 "Fetch an image post and describe the image using SceneXplain",
-                {
-                    "post_id": "ID of the Reddit post to fetch and describe",
-                },
+                extract_types({
+                    "post_id": {"type": "string"}
+                }),
                 lambda **kwargs: reddit_instance.fetch_and_describe_image_post(kwargs),
             )
             prompt.add_resource(
@@ -514,11 +572,11 @@ class RedditPlugin(AutoGPTPluginTemplate):
             prompt.add_command(
                 "submit_post",
                 "Submit a Reddit post",
-                {
-                    "title": "Title of the post",
-                    "content": "Content of the post",
-                    "subreddit": "Subreddit to post to",
-                },
+                extract_types({
+                    "title": {"type": "string"},
+                    "content": {"type": "string"},
+                    "subreddit": {"type": "string"}
+                }),
                 lambda **kwargs: reddit_instance.submit_post(kwargs),
             )
         else:
