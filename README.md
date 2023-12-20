@@ -3,7 +3,7 @@
 Reddit API integrations using PRAW.
 This plugin targets the master branch of AutoGPT currently. AutoGPT is developing rapidly and the master branch is broken often, therefore this plugin is also devopling rapidly and is also broken often. Upon the next stable release of AutoGPT, I will also release a stable branch. 
 
-### :warning: WARNING: THIS PLUGIN ADDS SIGNIFIGANT OVERHEAD TO THE PROMT AND REQUESTS SIGNIFIGANT AMONTS OF DATA WHICH WILL DRASTICALLY INCREASE API USEAGE AND COST :warning:
+### :warning: WARNING: THIS PLUGIN ADDS SIGNIFICANT OVERHEAD TO THE PROMT AND REQUESTS SIGNIFIGANT AMONTS OF DATA WHICH WILL DRASTICALLY INCREASE API USEAGE AND COST :warning:
 
 ## Available Commands
 
